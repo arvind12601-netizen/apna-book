@@ -26,9 +26,10 @@ interface LedgerGroup {
 
 interface BalanceSheetProps {
   showHeader?: boolean;
+  isYearWise?: boolean;
 }
 
-const BalanceSheet: React.FC<BalanceSheetProps> = ({ showHeader = true }) => {
+const BalanceSheet: React.FC<BalanceSheetProps> = ({ showHeader = true, isYearWise = false }) => {
   const { theme } = useAppContext();
   const navigate = useNavigate();
 
@@ -46,6 +47,11 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({ showHeader = true }) => {
   const [debitCreditData, setDebitCreditData] = useState<
     Record<number, { debit: number; credit: number }>
   >({});
+
+  const [yearwiseData, setYearwiseData] = useState<{
+    years: number[];
+    particulars: Record<string, { name: string; amount: number; isLiability: boolean; [year: number]: any }>;
+  } | null>(null);
 
   const companyId = localStorage.getItem("company_id") || localStorage.getItem("active_company_id") || "";
   const rawOwnerType = localStorage.getItem("supplier") || "";
@@ -106,6 +112,25 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({ showHeader = true }) => {
       }
     };
     fetchData();
+  }, [companyId, ownerType, ownerId]);
+
+  useEffect(() => {
+    const fetchYearwise = async () => {
+      if (!companyId) return;
+      try {
+        const url = `${import.meta.env.VITE_API_URL}/api/balance-sheet/yearwise?company_id=${companyId}&owner_type=${ownerType}&owner_id=${ownerId}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setYearwiseData(data);
+          }
+        }
+      } catch (err) {
+        console.error("Yearwise fetch error:", err);
+      }
+    };
+    fetchYearwise();
   }, [companyId, ownerType, ownerId]);
 
   useEffect(() => {
@@ -309,6 +334,130 @@ const BalanceSheet: React.FC<BalanceSheetProps> = ({ showHeader = true }) => {
       </div>
     );
   };
+
+  const displayYears = yearwiseData?.years || [2024, 2025, 2026, 2027];
+
+  const formatVal = (val: number | undefined | null) => {
+    if (val === undefined || val === null || isNaN(val)) return "₹0";
+    return `₹${Math.abs(val).toLocaleString("en-IN")}`;
+  };
+
+  const particularRows = [
+    {
+      key: "CapitalAccount",
+      name: "Capital Account",
+      groupId: -4,
+      amount: Math.abs(calculatedTotal.CapitalAccount),
+      yearValues: displayYears.map(
+        (y) => yearwiseData?.particulars?.CapitalAccount?.[y] ?? calculatedTotal.CapitalAccount
+      ),
+    },
+    {
+      key: "LoanLiability",
+      name: "Loan (Liability)",
+      groupId: -13,
+      amount: Math.abs(calculatedTotal.Loans),
+      yearValues: displayYears.map(
+        (y) => yearwiseData?.particulars?.LoanLiability?.[y] ?? calculatedTotal.Loans
+      ),
+    },
+    {
+      key: "CurrentLiability",
+      name: "Current Liability",
+      groupId: -6,
+      amount: Math.abs(calculatedTotal.CurrentLiabilities),
+      yearValues: displayYears.map(
+        (y) => yearwiseData?.particulars?.CurrentLiability?.[y] ?? calculatedTotal.CurrentLiabilities
+      ),
+    },
+    {
+      key: "FixedAssets",
+      name: "Fixed Assets",
+      groupId: -9,
+      amount: Math.abs(calculatedTotal.FixedAssets),
+      yearValues: displayYears.map(
+        (y) => yearwiseData?.particulars?.FixedAssets?.[y] ?? calculatedTotal.FixedAssets
+      ),
+    },
+    {
+      key: "CurrentAssets",
+      name: "Current Assets",
+      groupId: -5,
+      amount: Math.abs(calculatedTotal.CurrentAssets),
+      yearValues: displayYears.map(
+        (y) => yearwiseData?.particulars?.CurrentAssets?.[y] ?? calculatedTotal.CurrentAssets
+      ),
+    },
+  ];
+
+  if (isYearWise || !showHeader) {
+    return (
+      <div className={showHeader ? "pt-[56px] px-4" : ""}>
+        {showHeader && (
+          <div className="flex items-center mb-6">
+            <button
+              title="Back to Reports"
+              type="button"
+              onClick={() => navigate("/app/reports")}
+              className={`mr-4 p-2 rounded-full ${theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200"}`}
+              disabled={loading}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="text-2xl font-bold">Balance Sheet</h1>
+          </div>
+        )}
+
+        {loading && <p className="p-4 text-gray-500">Loading Balance Sheet data...</p>}
+        {error && <p className="p-4 text-red-600">{error}</p>}
+
+        {!loading && !error && (
+          <div className={`p-6 rounded-xl border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200 shadow"}`}>
+            <div className="flex items-center justify-between mb-4 border-b pb-3">
+              <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">Section E - Balance Sheet</h2>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-medium">
+                Year-Wise Closing Balance
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className={`border-b text-xs font-semibold uppercase tracking-wider ${theme === "dark" ? "bg-gray-700 text-gray-300 border-gray-600" : "bg-gray-100 text-gray-700 border-gray-300"}`}>
+                    <th className="py-3 px-4 text-left">Particular</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    {displayYears.map((y) => (
+                      <th key={y} className="py-3 px-4 text-right">{y}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${theme === "dark" ? "divide-gray-700 text-gray-200" : "divide-gray-200 text-gray-800"}`}>
+                  {particularRows.map((row) => (
+                    <tr
+                      key={row.key}
+                      onClick={() => handleGroupClick(row.groupId)}
+                      className={`cursor-pointer transition-colors duration-150 ${theme === "dark" ? "hover:bg-gray-700" : "hover:bg-blue-50"}`}
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">
+                        {row.name}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold">
+                        {formatVal(row.amount)}
+                      </td>
+                      {row.yearValues.map((val, idx) => (
+                        <td key={displayYears[idx]} className="py-3.5 px-4 text-right font-mono">
+                          {formatVal(val)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={showHeader ? "pt-[56px] px-4" : ""}>

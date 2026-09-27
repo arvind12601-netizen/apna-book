@@ -162,6 +162,172 @@ router.get("/api/balance-sheet/group", async (req, res) => {
   }
 });
 
+// GET /api/balance-sheet/yearwise - Consolidated year-wise Balance Sheet data
+router.get("/api/balance-sheet/yearwise", async (req, res) => {
+  const { company_id, owner_type, owner_id, start_year } = req.query;
+  if (!company_id || !owner_type || !owner_id) {
+    return res.status(400).json({ error: "Missing tenant parameters" });
+  }
+
+  try {
+    // 1. Determine base start year (default 2024)
+    let baseYear = parseInt(start_year, 10);
+    if (!baseYear || isNaN(baseYear)) {
+      // Try to get company's books_beginning_year or financial_year
+      const [compRows] = await pool.query(
+        "SELECT books_beginning_year, financial_year FROM companies WHERE id = ?",
+        [company_id]
+      );
+      if (compRows.length > 0) {
+        const bby = compRows[0].books_beginning_year;
+        const fy = compRows[0].financial_year;
+        const match = (bby || fy || "").match(/\d{4}/);
+        if (match) {
+          baseYear = parseInt(match[0], 10);
+        }
+      }
+    }
+    if (!baseYear || isNaN(baseYear)) baseYear = 2024;
+
+    const years = [baseYear, baseYear + 1, baseYear + 2, baseYear + 3];
+
+    // 2. Fetch all groups for tenant & system groups
+    const [ledgerGroups] = await pool.query(
+      `SELECT id, name, type, parent 
+       FROM ledger_groups 
+       WHERE (company_id = ? AND owner_type = ? AND owner_id = ?)
+          OR (company_id = ? AND company_id > 0)
+          OR (company_id = 0 AND owner_type = 'employee' AND owner_id = 0)`,
+      [company_id, owner_type, owner_id, company_id]
+    );
+
+    // 3. Fetch all ledgers for tenant
+    const [ledgers] = await pool.query(
+      `SELECT 
+         l.id, 
+         l.name, 
+         l.group_id,
+         CAST(l.opening_balance AS DECIMAL(15,2)) AS opening_balance,
+         l.balance_type,
+         g.name AS group_name
+       FROM ledgers l
+       LEFT JOIN ledger_groups g ON l.group_id = g.id
+       WHERE (l.company_id = ? AND ((l.owner_type = ? AND l.owner_id = ?) OR l.owner_id = 0))
+          OR (l.company_id = ? AND l.company_id > 0)`,
+      [company_id, owner_type, owner_id, company_id]
+    );
+
+    // Helper to find all subgroup IDs under a parent group ID
+    const getSubGroupIds = (parentGroupId) => {
+      let ids = [parentGroupId];
+      const traverse = (pId) => {
+        const children = ledgerGroups.filter((g) => Number(g.parent) === Number(pId));
+        children.forEach((c) => {
+          ids.push(Number(c.id));
+          traverse(Number(c.id));
+        });
+      };
+      traverse(parentGroupId);
+      return ids;
+    };
+
+    const capitalGroupIds = getSubGroupIds(-4);
+    const loanGroupIds = getSubGroupIds(-13);
+    const currentLiabGroupIds = getSubGroupIds(-6);
+    const fixedAssetGroupIds = getSubGroupIds(-9);
+    const currentAssetGroupIds = getSubGroupIds(-5);
+
+    // Filter ledgers per particular category
+    const filterLedgers = (groupIds) =>
+      ledgers.filter((l) => groupIds.includes(Number(l.group_id)));
+
+    const categoryLedgers = {
+      CapitalAccount: filterLedgers(capitalGroupIds),
+      LoanLiability: filterLedgers(loanGroupIds),
+      CurrentLiability: filterLedgers(currentLiabGroupIds),
+      FixedAssets: filterLedgers(fixedAssetGroupIds),
+      CurrentAssets: filterLedgers(currentAssetGroupIds),
+    };
+
+    // Calculate closing balance for each year
+    // For each year Y, end date is Y-03-31 (or Y+1-03-31 depending on FY definition)
+    // We treat year column label Y as ending March 31 of year Y (e.g. 2024 = 2024-03-31)
+    const particularsResult = {
+      CapitalAccount: { name: "Capital Account", isLiability: true },
+      LoanLiability: { name: "Loan (Liability)", isLiability: true },
+      CurrentLiability: { name: "Current Liability", isLiability: true },
+      FixedAssets: { name: "Fixed Assets", isLiability: false },
+      CurrentAssets: { name: "Current Assets", isLiability: false },
+    };
+
+    // Initialize totals for each year
+    Object.keys(particularsResult).forEach((key) => {
+      years.forEach((y) => {
+        particularsResult[key][y] = 0;
+      });
+      particularsResult[key]["amount"] = 0;
+    });
+
+    for (const y of years) {
+      const endDate = `${y}-03-31 23:59:59`;
+
+      // Fetch cumulative transactions up to endDate
+      const [txRows] = await pool.query(
+        `SELECT ve.ledger_id,
+                SUM(CASE WHEN ve.entry_type = 'debit' THEN ve.amount ELSE 0 END) AS total_debit,
+                SUM(CASE WHEN ve.entry_type = 'credit' THEN ve.amount ELSE 0 END) AS total_credit
+         FROM voucher_entries ve
+         JOIN voucher_main vm ON ve.voucher_id = vm.id
+         WHERE vm.company_id = ? AND vm.date <= ?
+         GROUP BY ve.ledger_id`,
+        [company_id, endDate]
+      );
+
+      const txMap = {};
+      txRows.forEach((r) => {
+        txMap[r.ledger_id] = {
+          debit: parseFloat(r.total_debit) || 0,
+          credit: parseFloat(r.total_credit) || 0,
+        };
+      });
+
+      // Calculate total for each particular group
+      Object.keys(categoryLedgers).forEach((catKey) => {
+        const ledgersList = categoryLedgers[catKey];
+        let categoryTotal = 0;
+
+        ledgersList.forEach((l) => {
+          const ob = parseFloat(l.opening_balance) || 0;
+          const openSigned = l.balance_type === "debit" ? ob : -ob;
+          const tx = txMap[l.id] || { debit: 0, credit: 0 };
+          const closingSigned = openSigned + tx.debit - tx.credit;
+          categoryTotal += closingSigned;
+        });
+
+        // For Liabilities, convert Dr-signed balance to positive credit representation
+        const isLiability = particularsResult[catKey].isLiability;
+        const displayValue = isLiability ? -categoryTotal : categoryTotal;
+        particularsResult[catKey][y] = displayValue;
+      });
+    }
+
+    // Set "amount" as the latest year (baseYear + 3) balance or current year balance
+    const activeYear = years[years.length - 1];
+    Object.keys(particularsResult).forEach((key) => {
+      particularsResult[key]["amount"] = particularsResult[key][activeYear] || 0;
+    });
+
+    res.json({
+      success: true,
+      years,
+      particulars: particularsResult,
+    });
+  } catch (err) {
+    console.error("Yearwise Balance Sheet Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.patch("/api/profit", async (req, res) => {
   try {
     const {

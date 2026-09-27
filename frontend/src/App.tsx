@@ -88,6 +88,7 @@ import SalesReturnRegister from "./components/voucherRegister/SalesReturnRegiste
 
 // // Reports Components
 import ReportsIndex from "./components/reports/ReportsIndex";
+import AccountSummary from "./components/reports/AccountSummary";
 import DayBook from "./components/reports/DayBook";
 import LedgerReport from "./components/reports/LedgerReport";
 import TrialBalance from "./components/reports/TrialBalance";
@@ -1725,6 +1726,14 @@ function App() {
                   element={
                     <RequireCompany>
                       <LedgerCaraction />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/account-summary"
+                  element={
+                    <RequireCompany>
+                      <AccountSummary />
                     </RequireCompany>
                   }
                 />

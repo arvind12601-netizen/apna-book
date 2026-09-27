@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import BalanceSheet from '../../reports/BalanceSheet';
 import ProfitLoss from '../../reports/ProfitLoss';
+import ScheduleHierarchy from '../../audit/ScheduleHierarchy';
 
 const Form3CD: React.FC = () => {
   const { theme } = useAppContext();
@@ -1596,10 +1597,13 @@ const Form3CD: React.FC = () => {
           </div>
 
           {/* Section 1: Balance Sheet */}
-          <BalanceSheet showHeader={false} />
+          <BalanceSheet showHeader={false} isYearWise={true} />
 
           {/* Section 2 & 3: Trading Account, Profit & Loss Account, Summary */}
           <ProfitLoss showHeader={false} />
+
+          {/* Section 4: Schedule Hierarchy Analysis */}
+          <ScheduleHierarchy />
         </div>
       )}
 
