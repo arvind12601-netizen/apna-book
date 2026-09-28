@@ -252,6 +252,9 @@ app.use("/api/ledger-report", ledgerReportRouter);
 const ledgerCaractionRouter = require("./routes/ledger-caraction");
 app.use("/api/ledger-caraction", ledgerCaractionRouter);
 
+const fixedAssetsScheduleRouter = require("./routes/fixedAssetsSchedule");
+app.use(fixedAssetsScheduleRouter);
+
 const permissionsRouter = require("./routes/permissions");
 app.use(permissionsRouter);
 

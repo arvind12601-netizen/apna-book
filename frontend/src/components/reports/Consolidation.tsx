@@ -4,6 +4,7 @@ import { useAppContext } from "../../context/AppContext";
 import { ArrowLeft, Printer, Download, Settings, ChevronDown, ChevronRight, User, Calendar } from "lucide-react";
 import { useAuth } from "../../home/context/AuthContext";
 import { useFinancialYear, getFinancialYearRange, getAvailableFinYears } from "../../hooks/useFinancialYear";
+import FixedAssetsSchedule from "./FixedAssetsSchedule";
 
 interface Company {
   id: number;
@@ -636,9 +637,21 @@ const ConsolidatedFinancialReport: React.FC = () => {
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">Consolidated Financial Report</h1>
-          <p className="text-xs text-gray-500">{companies.length} {companies.length === 1 ? 'Company' : 'Companies'}</p>
+        <div className="flex-1 flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold">Consolidated Financial Report</h1>
+            <p className="text-xs text-gray-500">{companies.length} {companies.length === 1 ? 'Company' : 'Companies'}</p>
+          </div>
+          <button
+            onClick={() => navigate('/app/reports/fixed-assets-schedule')}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border transition-all print:hidden ${
+              isDark
+                ? 'bg-gray-800 border-gray-700 text-indigo-400 hover:bg-gray-700'
+                : 'bg-white border-gray-300 text-indigo-600 hover:bg-gray-50 shadow-sm'
+            }`}
+          >
+            Fixed Assets Schedule
+          </button>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <div className="flex items-center gap-2 mr-2">
@@ -825,7 +838,10 @@ const ConsolidatedFinancialReport: React.FC = () => {
         </div>
       </div>
 
-    </div >
+      {/* SCHEDULE OF FIXED ASSETS AT BOTTOM OF CONSOLIDATION */}
+      <FixedAssetsSchedule embedded={true} />
+
+    </div>
   );
 };
 

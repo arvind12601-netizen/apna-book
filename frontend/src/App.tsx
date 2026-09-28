@@ -124,6 +124,7 @@ import PurchaseInvoiceMatching1 from "./components/reports/PurchaseInvoiceMatchi
 import B2B from "./components/reports/B2B";
 import B2C from "./components/reports/B2C";
 import Consolidation from "./components/reports/Consolidation";
+import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
 import QuantityCorrection from "./components/reports/QuantityCorrection";
@@ -1718,6 +1719,14 @@ function App() {
                   element={
                     <RequireCompany>
                       <Consolidation />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/fixed-assets-schedule"
+                  element={
+                    <RequireCompany>
+                      <FixedAssetsSchedule />
                     </RequireCompany>
                   }
                 />

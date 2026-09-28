@@ -26,12 +26,14 @@ import {
   AlertCircle,
   Loader2,
   Plus,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import BalanceSheet from '../../reports/BalanceSheet';
 import ProfitLoss from '../../reports/ProfitLoss';
 import ProfitLoss3CD from '../../audit/ProfitLoss3CD';
 import ScheduleHierarchy from '../../audit/ScheduleHierarchy';
+import FixedAssetsSchedule from '../../reports/FixedAssetsSchedule';
 
 const Form3CD: React.FC = () => {
   const { theme } = useAppContext();
@@ -1590,11 +1592,24 @@ const Form3CD: React.FC = () => {
       {/* PART E */}
       {activeTab === 'partE' && (
         <div className="space-y-8">
-          <div className={`rounded-xl border p-6 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-            <h2 className="text-xl font-semibold text-blue-600 mb-2">Part E: Financial Statements</h2>
-            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-              Balance Sheet, Trading Account, and Profit & Loss Account derived from books of account for Audit Form 3CD.
-            </p>
+          <div className={`rounded-xl border p-6 flex flex-wrap items-center justify-between gap-4 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div>
+              <h2 className="text-xl font-semibold text-blue-600 mb-1">Part E: Financial Statements</h2>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                Balance Sheet, Trading Account, Profit & Loss Account, and Schedule of Fixed Assets derived from books of account for Audit Form 3CD.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("fa-schedule-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-all shadow-sm"
+            >
+              <FileText size={16} />
+              Fixed Assets Schedule
+            </button>
           </div>
 
           {/* Section 1: Balance Sheet */}
@@ -1605,6 +1620,11 @@ const Form3CD: React.FC = () => {
 
           {/* Section 4: Schedule Hierarchy Analysis */}
           <ScheduleHierarchy />
+
+          {/* Section 5: Schedule of Fixed Assets */}
+          <div id="fa-schedule-section" className="pt-2">
+            <FixedAssetsSchedule embedded={true} />
+          </div>
         </div>
       )}
 
