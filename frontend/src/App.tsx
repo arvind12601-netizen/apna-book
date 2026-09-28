@@ -125,6 +125,7 @@ import B2B from "./components/reports/B2B";
 import B2C from "./components/reports/B2C";
 import Consolidation from "./components/reports/Consolidation";
 import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
+import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
 import QuantityCorrection from "./components/reports/QuantityCorrection";
@@ -1743,6 +1744,14 @@ function App() {
                   element={
                     <RequireCompany>
                       <AccountSummary />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/receipt-payment-account"
+                  element={
+                    <RequireCompany>
+                      <ReceiptPaymentAccount />
                     </RequireCompany>
                   }
                 />
