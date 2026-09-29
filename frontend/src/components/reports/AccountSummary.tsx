@@ -110,7 +110,7 @@ const AccountSummary: React.FC = () => {
   const [ledgers, setLedgers] = useState<Ledger[]>([]);
   const [selectedLedgerId, setSelectedLedgerId] = useState<string>("");
   const [ledgerSearchTerm, setLedgerSearchTerm] = useState<string>("");
-  const [selectedVoucherBadge, setSelectedVoucherBadge] = useState<string>("Payment");
+  const [selectedVoucherBadge, setSelectedVoucherBadge] = useState<string | null>(null);
 
   // API Data States
   const [loadingLedgers, setLoadingLedgers] = useState<boolean>(true);
@@ -143,6 +143,8 @@ const AccountSummary: React.FC = () => {
 
   // Fetch Ledger Transactions Report when ledgerId or Date Range changes
   useEffect(() => {
+    setSelectedVoucherBadge(null); // Reset detail selection by default
+
     if (!selectedLedgerId) {
       setReportData(null);
       return;
@@ -273,8 +275,45 @@ const AccountSummary: React.FC = () => {
     return counts;
   }, [allTransactions]);
 
+  // Summary Table Data per Voucher Type (Type, Entry, Taxable Value, Total Value)
+  const voucherTypeSummary = useMemo(() => {
+    return VOUCHER_TYPES.map((vType) => {
+      const target = vType.key.toLowerCase();
+      const txns = allTransactions.filter((txn) => {
+        const type = (txn.voucherType || "").trim().toLowerCase();
+        if (target === "payment") return type === "payment";
+        if (target === "receipt") return type === "receipt";
+        if (target === "contra") return type === "contra";
+        if (target === "journal") return type === "journal";
+        if (target === "sales") return type === "sales" || type === "sale";
+        if (target === "purchase") return type === "purchase";
+        if (target === "debit note") return type.includes("debit note") || type === "debitnote";
+        if (target === "credit note") return type.includes("credit note") || type === "creditnote";
+        return type === target;
+      });
+
+      let taxableValue = 0;
+      let totalValue = 0;
+
+      txns.forEach((t) => {
+        taxableValue += Number(t.taxableValue || t.debit || t.credit || 0);
+        totalValue += Number(t.totalValue || t.debit || t.credit || 0);
+      });
+
+      return {
+        key: vType.key,
+        label: vType.label,
+        entry: txns.length,
+        taxableValue,
+        totalValue,
+        color: vType.color,
+      };
+    }).filter((item) => item.entry > 0);
+  }, [allTransactions]);
+
   // Transactions filtered by active Badge
   const filteredTransactions = useMemo(() => {
+    if (!selectedVoucherBadge) return [];
     const targetBadge = selectedVoucherBadge.toLowerCase();
 
     return allTransactions.filter((txn) => {
@@ -600,49 +639,91 @@ const AccountSummary: React.FC = () => {
         )}
       </div>
 
-      {/* Transaction Type Badges Section */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Voucher Type Analysis Badges
-          </label>
-          {selectedLedgerId && (
-            <span className="text-xs text-slate-400">
-              Click a badge to filter voucher breakdown
+      {/* Voucher Type Summary Table (Interactive Selector) */}
+      {selectedLedgerId && voucherTypeSummary.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Voucher Type Summary (Click any row to view details below)
+            </label>
+            <span className="text-xs text-indigo-500 font-semibold">
+              Selected View: {selectedVoucherBadge}
             </span>
-          )}
-        </div>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 shadow-sm">
-          {VOUCHER_TYPES.map((b) => {
-            const count = voucherCounts[b.key] || 0;
-            const isSelected = selectedVoucherBadge === b.key;
-
-            return (
-              <button
-                key={b.key}
-                onClick={() => setSelectedVoucherBadge(b.key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                  isSelected
-                    ? `${b.color} text-white shadow-md ring-2 ring-indigo-400/50 scale-105`
-                    : `bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700`
-                }`}
-              >
-                <span>{b.label}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    isSelected
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          <div
+            className={`rounded-xl border ${
+              theme === "dark"
+                ? "bg-slate-800/80 border-slate-700"
+                : "bg-white border-slate-200 shadow-sm"
+            } overflow-hidden`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
+                      theme === "dark"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
+                    }`}
+                  >
+                    <th className="p-3.5">Type</th>
+                    <th className="p-3.5 text-center">Entry</th>
+                    <th className="p-3.5 text-right">Taxable Value</th>
+                    <th className="p-3.5 text-right">Total Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  {voucherTypeSummary.map((row) => {
+                    const isSelected = selectedVoucherBadge === row.key;
+                    return (
+                      <tr
+                        key={row.key}
+                        onClick={() => setSelectedVoucherBadge(isSelected ? null : row.key)}
+                        className={`cursor-pointer transition-all duration-150 ${
+                          isSelected
+                            ? theme === "dark"
+                              ? "bg-indigo-950/80 font-bold border-l-4 border-l-indigo-500 text-slate-100"
+                              : "bg-indigo-100/80 font-bold border-l-4 border-l-indigo-600 text-slate-900"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-700/40 text-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        <td className="p-3.5 font-extrabold text-sm flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full ${row.color}`}></span>
+                          <span>{row.label}</span>
+                          {isSelected && (
+                            <span className="ml-1 text-[10px] uppercase font-black px-2 py-0.5 rounded bg-indigo-600 text-white">
+                              Selected
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-center font-mono">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
+                              row.entry > 0
+                                ? "bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            {row.entry}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                          {formatCurrency(row.taxableValue)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-black text-base text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(row.totalValue)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Result Section */}
       <div
@@ -657,7 +738,7 @@ const AccountSummary: React.FC = () => {
           <div className="p-12 text-center space-y-3">
             <RefreshCw className="w-8 h-8 mx-auto animate-spin text-indigo-500" />
             <p className="text-sm font-medium text-slate-500">
-              Loading {selectedVoucherBadge} vouchers for {selectedLedger?.name || "selected ledger"}...
+              Loading transaction data for {selectedLedger?.name || "selected ledger"}...
             </p>
           </div>
         )}
@@ -679,13 +760,26 @@ const AccountSummary: React.FC = () => {
               No Ledger Selected
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              Please select a ledger from the dropdown above to view its transaction analysis and filter by voucher type.
+              Please select a ledger from the dropdown above to view its transaction summary.
             </p>
           </div>
         )}
 
-        {/* Empty state when ledger selected but no matching transactions */}
-        {!loadingTxns && !error && selectedLedgerId && filteredTransactions.length === 0 && (
+        {/* Prompt state when ledger selected but no voucher type row clicked yet */}
+        {!loadingTxns && !error && selectedLedgerId && !selectedVoucherBadge && (
+          <div className="p-10 text-center space-y-2">
+            <Layers className="w-10 h-10 mx-auto text-indigo-400 dark:text-indigo-500" />
+            <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
+              Click a Voucher Type to View Details
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Select any row from the summary table above to view detailed transaction breakdown.
+            </p>
+          </div>
+        )}
+
+        {/* Empty state when voucher type clicked but 0 transactions */}
+        {!loadingTxns && !error && selectedLedgerId && selectedVoucherBadge && filteredTransactions.length === 0 && (
           <div className="p-12 text-center space-y-3">
             <CheckCircle2 className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
             <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
@@ -702,28 +796,28 @@ const AccountSummary: React.FC = () => {
           <div className="overflow-x-auto">
             {/* Sales & Purchase Specific Table */}
             {(selectedVoucherBadge === "Sales" || selectedVoucherBadge === "Purchase") ? (
-              <table className="w-full text-xs text-left border-collapse">
+              <table className="w-full text-sm text-left border-collapse">
                 <thead>
                   <tr
-                    className={`border-b font-semibold ${
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
                       theme === "dark"
-                        ? "bg-slate-900/80 text-slate-300 border-slate-700"
-                        : "bg-slate-100 text-slate-700 border-slate-200"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
                     }`}
                   >
-                    <th className="p-3">Voucher No</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">{selectedVoucherBadge === "Sales" ? "Customer" : "Supplier"}</th>
-                    <th className="p-3">Item / Product</th>
-                    <th className="p-3 text-right">Qty</th>
-                    <th className="p-3 text-right">Rate</th>
-                    <th className="p-3 text-right">Taxable Value</th>
-                    <th className="p-3 text-right">Discount</th>
-                    <th className="p-3 text-right">IGST</th>
-                    <th className="p-3 text-right">CGST</th>
-                    <th className="p-3 text-right">SGST</th>
-                    <th className="p-3 text-right">Total Value</th>
-                    <th className="p-3">Narration</th>
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">{selectedVoucherBadge === "Sales" ? "Customer" : "Supplier"}</th>
+                    <th className="p-3.5">Item / Product</th>
+                    <th className="p-3.5 text-right">Qty</th>
+                    <th className="p-3.5 text-right">Rate</th>
+                    <th className="p-3.5 text-right">Taxable Value</th>
+                    <th className="p-3.5 text-right">Discount</th>
+                    <th className="p-3.5 text-right">IGST</th>
+                    <th className="p-3.5 text-right">CGST</th>
+                    <th className="p-3.5 text-right">SGST</th>
+                    <th className="p-3.5 text-right">Total Value</th>
+                    <th className="p-3.5">Narration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
@@ -742,43 +836,43 @@ const AccountSummary: React.FC = () => {
                     return (
                       <tr
                         key={t.id || index}
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${
+                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
                           index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
                         }`}
                       >
-                        <td className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                        <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
                           {t.voucherNo || "-"}
                         </td>
-                        <td className="p-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
                           {formatDate(t.date)}
                         </td>
-                        <td className="p-3 font-medium text-slate-900 dark:text-slate-100">
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
                           {t.particulars || "-"}
                         </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 max-w-xs truncate" title={itemNames}>
+                        <td className="p-3.5 text-slate-800 dark:text-slate-200 font-medium max-w-xs truncate" title={itemNames}>
                           {itemNames}
                         </td>
-                        <td className="p-3 text-right font-mono">{totalQty}</td>
-                        <td className="p-3 text-right font-mono">{avgRate}</td>
-                        <td className="p-3 text-right font-mono">
+                        <td className="p-3.5 text-right font-mono font-bold">{totalQty}</td>
+                        <td className="p-3.5 text-right font-mono font-bold">{avgRate}</td>
+                        <td className="p-3.5 text-right font-mono font-extrabold">
                           {formatCurrency(t.taxableValue || t.debit || t.credit || 0)}
                         </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
                           {formatCurrency(t.discount || 0)}
                         </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
                           {formatCurrency(t.igst || 0)}
                         </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
                           {formatCurrency(t.cgst || 0)}
                         </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
                           {formatCurrency(t.sgst || 0)}
                         </td>
-                        <td className="p-3 text-right font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                        <td className="p-3.5 text-right font-black font-mono text-emerald-600 dark:text-emerald-400 text-sm">
                           {formatCurrency(t.totalValue || t.debit || t.credit || 0)}
                         </td>
-                        <td className="p-3 text-slate-500 dark:text-slate-400 max-w-xs truncate" title={t.narration}>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={t.narration}>
                           {t.narration || "-"}
                         </td>
                       </tr>
@@ -787,70 +881,70 @@ const AccountSummary: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr
-                    className={`border-t-2 border-b-2 text-sm font-extrabold tracking-wide ${
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
                       theme === "dark"
                         ? "bg-slate-900 text-amber-400 border-indigo-500"
                         : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
                     }`}
                   >
-                    <td className="p-3.5 text-indigo-600 dark:text-indigo-400 font-black" colSpan={4}>TOTAL</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{totals.totalQty > 0 ? totals.totalQty : "-"}</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">-</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{formatCurrency(totals.totalTaxable)}</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{formatCurrency(totals.totalDiscount)}</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{formatCurrency(totals.totalIgst)}</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{formatCurrency(totals.totalCgst)}</td>
-                    <td className="p-3.5 text-right font-mono font-extrabold">{formatCurrency(totals.totalSgst)}</td>
-                    <td className="p-3.5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base">
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={4}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black">{totals.totalQty > 0 ? totals.totalQty : "-"}</td>
+                    <td className="p-4 text-right font-mono font-black">-</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalTaxable)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalDiscount)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalIgst)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalCgst)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalSgst)}</td>
+                    <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg">
                       {formatCurrency(totals.totalValue)}
                     </td>
-                    <td className="p-3.5"></td>
+                    <td className="p-4"></td>
                   </tr>
                 </tfoot>
               </table>
             ) : (selectedVoucherBadge === "Journal" || selectedVoucherBadge === "Debit Note" || selectedVoucherBadge === "Credit Note") ? (
               /* Journal, Debit Note, Credit Note Table */
-              <table className="w-full text-xs text-left border-collapse">
+              <table className="w-full text-sm text-left border-collapse">
                 <thead>
                   <tr
-                    className={`border-b font-semibold ${
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
                       theme === "dark"
-                        ? "bg-slate-900/80 text-slate-300 border-slate-700"
-                        : "bg-slate-100 text-slate-700 border-slate-200"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
                     }`}
                   >
-                    <th className="p-3">Voucher No</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Particulars / Account</th>
-                    <th className="p-3 text-right">Debit</th>
-                    <th className="p-3 text-right">Credit</th>
-                    <th className="p-3">Narration</th>
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">Particulars / Account</th>
+                    <th className="p-3.5 text-right">Debit</th>
+                    <th className="p-3.5 text-right">Credit</th>
+                    <th className="p-3.5">Narration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                   {filteredTransactions.map((t, index) => (
                     <tr
                       key={t.id || index}
-                      className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${
+                      className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
                         index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
                       }`}
                     >
-                      <td className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                      <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
                         {t.voucherNo || "-"}
                       </td>
-                      <td className="p-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
                         {formatDate(t.date)}
                       </td>
-                      <td className="p-3 font-medium text-slate-900 dark:text-slate-100">
+                      <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
                         {t.particulars || "-"}
                       </td>
-                      <td className="p-3 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">
+                      <td className="p-3.5 text-right font-mono font-extrabold text-rose-600 dark:text-rose-400">
                         {t.debit > 0 ? formatCurrency(t.debit) : "-"}
                       </td>
-                      <td className="p-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      <td className="p-3.5 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
                         {t.credit > 0 ? formatCurrency(t.credit) : "-"}
                       </td>
-                      <td className="p-3 text-slate-500 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
+                      <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
                         {t.narration || "-"}
                       </td>
                     </tr>
@@ -858,39 +952,39 @@ const AccountSummary: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr
-                    className={`border-t-2 border-b-2 text-sm font-extrabold tracking-wide ${
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
                       theme === "dark"
                         ? "bg-slate-900 text-amber-400 border-indigo-500"
                         : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
                     }`}
                   >
-                    <td className="p-3.5 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
-                    <td className="p-3.5 text-right font-mono font-black text-rose-600 dark:text-rose-400 text-base">
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black text-rose-600 dark:text-rose-400 text-base sm:text-lg">
                       {formatCurrency(totals.totalDebit)}
                     </td>
-                    <td className="p-3.5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base">
+                    <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg">
                       {formatCurrency(totals.totalCredit)}
                     </td>
-                    <td className="p-3.5"></td>
+                    <td className="p-4"></td>
                   </tr>
                 </tfoot>
               </table>
             ) : (
               /* Payment, Receipt, Contra Table */
-              <table className="w-full text-xs text-left border-collapse">
+              <table className="w-full text-sm text-left border-collapse">
                 <thead>
                   <tr
-                    className={`border-b font-semibold ${
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
                       theme === "dark"
-                        ? "bg-slate-900/80 text-slate-300 border-slate-700"
-                        : "bg-slate-100 text-slate-700 border-slate-200"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
                     }`}
                   >
-                    <th className="p-3">Voucher No</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Particulars / Account</th>
-                    <th className="p-3 text-right">Amount</th>
-                    <th className="p-3">Narration</th>
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">Particulars / Account</th>
+                    <th className="p-3.5 text-right">Amount</th>
+                    <th className="p-3.5">Narration</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
@@ -899,23 +993,23 @@ const AccountSummary: React.FC = () => {
                     return (
                       <tr
                         key={t.id || index}
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${
+                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
                           index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
                         }`}
                       >
-                        <td className="p-3 font-semibold text-indigo-600 dark:text-indigo-400">
+                        <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
                           {t.voucherNo || "-"}
                         </td>
-                        <td className="p-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
                           {formatDate(t.date)}
                         </td>
-                        <td className="p-3 font-medium text-slate-900 dark:text-slate-100">
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
                           {t.particulars || "-"}
                         </td>
-                        <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                        <td className="p-3.5 text-right font-mono font-black text-slate-900 dark:text-slate-100 text-sm">
                           {formatCurrency(amt)}
                         </td>
-                        <td className="p-3 text-slate-500 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
                           {t.narration || "-"}
                         </td>
                       </tr>
@@ -924,17 +1018,17 @@ const AccountSummary: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr
-                    className={`border-t-2 border-b-2 text-sm font-extrabold tracking-wide ${
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
                       theme === "dark"
                         ? "bg-slate-900 text-amber-400 border-indigo-500"
                         : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
                     }`}
                   >
-                    <td className="p-3.5 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
-                    <td className="p-3.5 text-right font-mono font-black text-slate-900 dark:text-slate-100 text-base">
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black text-slate-900 dark:text-slate-100 text-base sm:text-lg">
                       {formatCurrency(totals.totalAmount)}
                     </td>
-                    <td className="p-3.5"></td>
+                    <td className="p-4"></td>
                   </tr>
                 </tfoot>
               </table>
