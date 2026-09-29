@@ -83,6 +83,7 @@ SELECT
   pv.tdsTotal,
   pv.total,
   pv.discountTotal,
+  MAX(pv.narration) AS narration,
 
   MAX(pvi.purchaseLedgerId) AS purchaseLedgerId,
   MAX(pvi.cgstRate)        AS cgstRate,
@@ -137,6 +138,7 @@ ORDER BY pv.date ASC
     sv.sgstTotal,
     sv.igstTotal,
     sv.total,
+    MAX(sv.narration) AS narration,
 
     MAX(svi.salesLedgerId) AS salesLedgerId,
     MAX(svi.cgstRate) AS cgstRate,
@@ -177,6 +179,37 @@ ORDER BY pv.date ASC
   `,
       [ledgerId, ledgerId, ledgerId, ledgerId, ledgerId, ledgerId, ledgerId, ledgerId]
     );
+
+    /* Fetch items for Purchase and Sales vouchers */
+    const pvItemsMap = {};
+    try {
+      const [pvItemsAll] = await connection.execute(
+        `SELECT pvi.voucherId, pvi.quantity, pvi.rate, pvi.amount, pvi.discount, COALESCE(si.name, 'Item') AS itemName
+         FROM purchase_voucher_items pvi
+         LEFT JOIN stock_items si ON si.id = pvi.itemId`
+      );
+      (pvItemsAll || []).forEach((item) => {
+        if (!pvItemsMap[item.voucherId]) pvItemsMap[item.voucherId] = [];
+        pvItemsMap[item.voucherId].push(item);
+      });
+    } catch (e) {
+      console.error("Warning: failed to load purchase voucher items:", e.message);
+    }
+
+    const svItemsMap = {};
+    try {
+      const [svItemsAll] = await connection.execute(
+        `SELECT svi.voucherId, svi.quantity, svi.rate, svi.amount, svi.discount, COALESCE(si.name, 'Item') AS itemName
+         FROM sales_voucher_items svi
+         LEFT JOIN stock_items si ON si.id = svi.itemId`
+      );
+      (svItemsAll || []).forEach((item) => {
+        if (!svItemsMap[item.voucherId]) svItemsMap[item.voucherId] = [];
+        svItemsMap[item.voucherId].push(item);
+      });
+    } catch (e) {
+      console.error("Warning: failed to load sales voucher items:", e.message);
+    }
 
     /* ===============================
        3️⃣A QUOTATIONS → CREDIT/DEBIT
@@ -432,23 +465,17 @@ ORDER BY vm.date ASC
       balance += debit - credit;
 
       transactions.push({
-
         id: String(row.voucher_id),
-
         date: row.date,
-
         voucherType: row.voucher_type,
-
         voucherNo: row.voucher_number,
-
-
         particulars:
           row.opposite_ledger_name ||
           String(row.opposite_ledger),
-
         debit,
         credit,
         balance,
+        narration: row.narration || "",
       });
     });
 
@@ -483,6 +510,7 @@ ORDER BY vm.date ASC
           debit,
           credit,
           balance,
+          narration: parsed.narration || note.narration || "",
         });
       });
     });
@@ -517,6 +545,7 @@ ORDER BY vm.date ASC
           debit,
           credit,
           balance,
+          narration: parsed.narration || note.narration || "",
         });
       });
     });
@@ -617,6 +646,14 @@ ORDER BY vm.date ASC
         debit,
         credit,
         balance,
+        narration: pv.narration || "",
+        taxableValue: Number(pv.subtotal || 0),
+        discount: Number(pv.discountTotal || 0),
+        cgst: Number(pv.cgstTotal || 0),
+        sgst: Number(pv.sgstTotal || 0),
+        igst: Number(pv.igstTotal || 0),
+        totalValue: Number(pv.total || 0),
+        items: pvItemsMap[pv.id] || [],
       });
     });
 
@@ -695,6 +732,14 @@ ORDER BY vm.date ASC
         debit,
         credit,
         balance,
+        narration: sv.narration || "",
+        taxableValue: Number(sv.subtotal || 0),
+        discount: Number(sv.discountTotal || 0),
+        cgst: Number(sv.cgstTotal || 0),
+        sgst: Number(sv.sgstTotal || 0),
+        igst: Number(sv.igstTotal || 0),
+        totalValue: Number(sv.total || 0),
+        items: svItemsMap[sv.id] || [],
       });
     });
 

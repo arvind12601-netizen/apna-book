@@ -1,760 +1,1041 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAppContext } from "../../context/AppContext";
+import { useCompany } from "../../context/CompanyContext";
+import { useNavigate } from "react-router-dom";
 import {
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Eye,
-  X,
-  RefreshCw,
+  ArrowLeft,
+  Printer,
+  Download,
+  Filter,
   Calendar,
-  TrendingUp,
-  TrendingDown
+  Search,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Layers,
+  ChevronDown
 } from "lucide-react";
-import { useFinancialYear } from "../../hooks/useFinancialYear";
+import * as XLSX from "xlsx";
 
-interface VoucherEntryItem {
-  id: string | number;
-  ledger_id?: number | string;
-  ledger_name?: string;
+interface ItemDetail {
+  itemName: string;
+  quantity: number;
+  rate: number;
   amount: number;
-  entry_type: "debit" | "credit";
-  narration?: string;
-  isParty?: boolean;
-  isChild?: boolean;
+  discount: number;
 }
 
-interface RawVoucher {
+interface LedgerTransaction {
   id: string;
-  voucher_type: string;
-  voucher_number: string;
   date: string;
-  narration?: string;
-  reference_no?: string;
-  supplier_invoice_date?: string;
-  company_id?: string | number;
-  owner_type?: string;
-  owner_id?: string | number;
-  partyId?: string | number;
-  partyName?: string;
-  total?: number;
-  entries: VoucherEntryItem[];
-}
-
-interface AccountSummaryRow {
-  id: string;
-  voucherId: string;
-  date: string;
-  voucherNumber: string;
   voucherType: string;
-  partyName: string;
-  narration: string;
+  voucherNo: string;
+  particulars: string;
   debit: number;
   credit: number;
-  amount: number;
-  rawVoucher: RawVoucher;
+  balance: number;
+  narration?: string;
+  taxableValue?: number;
+  discount?: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  totalValue?: number;
+  items?: ItemDetail[];
 }
 
-interface CategorySummaryRow {
-  key: string;
-  label: string;
-  isReduction: boolean;
-  rows: AccountSummaryRow[];
-  totalAmount: number;
-  formattedAmount: string;
+interface LedgerApiResponse {
+  success: boolean;
+  ledger: {
+    id: number;
+    name: string;
+    balance_type?: string;
+  };
+  transactions: LedgerTransaction[];
+  summary: {
+    openingBalance: number;
+    closingBalance: number;
+    totalDebit: number;
+    totalCredit: number;
+    transactionCount: number;
+  };
+  message?: string;
 }
+
+interface Ledger {
+  id: string | number;
+  name: string;
+  groupId?: number | string;
+  group_name?: string;
+}
+
+// 8 Required Badge Voucher Types
+const VOUCHER_TYPES = [
+  { key: "Payment", label: "Payment", color: "bg-blue-500" },
+  { key: "Receipt", label: "Receipt", color: "bg-emerald-500" },
+  { key: "Contra", label: "Contra", color: "bg-purple-500" },
+  { key: "Journal", label: "Journal", color: "bg-amber-500" },
+  { key: "Sales", label: "Sales", color: "bg-indigo-500" },
+  { key: "Purchase", label: "Purchase", color: "bg-orange-500" },
+  { key: "Debit Note", label: "Debit Note", color: "bg-rose-500" },
+  { key: "Credit Note", label: "Credit Note", color: "bg-teal-500" },
+];
 
 const AccountSummary: React.FC = () => {
-  const { theme, ledgers = [] } = useAppContext();
-  const { selectedFinYear } = useFinancialYear();
+  const { theme } = useAppContext();
+  const { companyInfo } = useCompany();
+  const navigate = useNavigate();
 
-  // Date Range (Financial Year Default)
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
-  const [selectedPartyId, setSelectedPartyId] = useState<string>("all");
+  // Owners parameters
+  const companyId = localStorage.getItem("company_id") || "";
+  const ownerType = localStorage.getItem("supplier") || "";
+  const ownerId = localStorage.getItem(
+    ownerType === "employee" ? "employee_id" : "user_id"
+  ) || "";
 
-  // Expandable Rows State
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  // Date Range Defaults (Current FY)
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+  const fyStartDate = `${fyStartYear}-04-01`;
+  const fyEndDate = `${fyStartYear + 1}-03-31`;
 
-  // Data Loading States
-  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedDateRange, setSelectedDateRange] = useState("current-year");
+  const [fromDate, setFromDate] = useState(fyStartDate);
+  const [toDate, setToDate] = useState(fyEndDate);
+
+  // Ledger & Filter States
+  const [ledgers, setLedgers] = useState<Ledger[]>([]);
+  const [selectedLedgerId, setSelectedLedgerId] = useState<string>("");
+  const [ledgerSearchTerm, setLedgerSearchTerm] = useState<string>("");
+  const [selectedVoucherBadge, setSelectedVoucherBadge] = useState<string | null>(null);
+
+  // API Data States
+  const [loadingLedgers, setLoadingLedgers] = useState<boolean>(true);
+  const [loadingTxns, setLoadingTxns] = useState<boolean>(false);
+  const [reportData, setReportData] = useState<LedgerApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [allRawVouchers, setAllRawVouchers] = useState<RawVoucher[]>([]);
 
-  // Modal State for Viewing Voucher Details
-  const [selectedVoucher, setSelectedVoucher] = useState<RawVoucher | null>(null);
-
-  // Owner parameters
-  const companyId = localStorage.getItem("company_id") || localStorage.getItem("active_company_id") || "";
-  const rawOwnerType = localStorage.getItem("supplier") || "";
-  const employeeId = localStorage.getItem("employee_id");
-  const userId = localStorage.getItem("user_id") || "";
-
-  const ownerType = (rawOwnerType === "ca" || rawOwnerType === "ca_employee" || rawOwnerType === "new_ca" || rawOwnerType === "employee" || employeeId)
-    ? "employee"
-    : (rawOwnerType || "employee");
-
-  const ownerId = (rawOwnerType === "ca" || rawOwnerType === "ca_employee" || rawOwnerType === "new_ca" || rawOwnerType === "employee" || employeeId)
-    ? (employeeId || userId)
-    : userId;
-
-  // Set default financial year dates
+  // Fetch Ledgers List
   useEffect(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+    const fetchLedgers = async () => {
+      if (!companyId) return;
+      setLoadingLedgers(true);
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/ledger?company_id=${companyId}&owner_type=${ownerType}&owner_id=${ownerId}`
+        );
+        if (res.ok) {
+          const data: Ledger[] = await res.json();
+          setLedgers(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch ledgers list:", err);
+      } finally {
+        setLoadingLedgers(false);
+      }
+    };
 
-    setFromDate(`${fyStartYear}-04-01`);
-    setToDate(`${fyStartYear + 1}-03-31`);
-  }, [selectedFinYear]);
+    fetchLedgers();
+  }, [companyId, ownerType, ownerId]);
 
-  // Fetch Vouchers Data from API
-  const fetchData = async () => {
-    if (!companyId || !ownerType || !ownerId) {
-      setLoading(false);
+  // Fetch Ledger Transactions Report when ledgerId or Date Range changes
+  useEffect(() => {
+    setSelectedVoucherBadge(null); // Reset detail selection by default
+
+    if (!selectedLedgerId) {
+      setReportData(null);
       return;
     }
 
-    setLoading(true);
+    setLoadingTxns(true);
     setError(null);
 
-    try {
-      const vouchersRes = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/daybookTable2?company_id=${companyId}&owner_type=${ownerType}&owner_id=${ownerId}`
-      );
+    fetch(
+      `${import.meta.env.VITE_API_URL}/api/ledger-caraction/report?ledgerId=${selectedLedgerId}&fromDate=${fromDate}&toDate=${toDate}`
+    )
+      .then((res) => res.json())
+      .then((data: LedgerApiResponse) => {
+        if (data.success) {
+          setReportData(data);
+        } else {
+          setError(data.message || "Error loading transaction data");
+        }
+      })
+      .catch((err) => {
+        setError(err.message || "Network error fetching transactions");
+      })
+      .finally(() => {
+        setLoadingTxns(false);
+      });
+  }, [selectedLedgerId, fromDate, toDate]);
 
-      if (!vouchersRes.ok) {
-        throw new Error(`Failed to fetch voucher data (${vouchersRes.status})`);
-      }
-
-      const rawVouchersData: RawVoucher[] = await vouchersRes.json();
-      setAllRawVouchers(Array.isArray(rawVouchersData) ? rawVouchersData : []);
-
-    } catch (err: any) {
-      console.error("Account Summary Fetch Error:", err);
-      setError(err.message || "Failed to load account summary data.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [companyId, ownerType, ownerId]);
-
-  // Always format as positive number (NO minus sign anywhere)
-  const formatNumber = (val: number) => {
-    if (!val || Math.abs(val) < 0.001) return "0.00";
-    return Math.abs(val).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+  // Helper Date Formatter
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
-  // Process & Calculate Account Summary Data
-  const {
-    openingNetBalance,
-    summaryCategories,
-    closingNetBalance
-  } = useMemo(() => {
-    // 1️⃣ Master Opening Balance (Customer / Party Ledgers)
-    let masterOpBal = 0;
-    if (Array.isArray(ledgers) && ledgers.length > 0) {
-      if (selectedPartyId !== "all") {
-        const partyLedger = ledgers.find((l: any) => String(l.id) === String(selectedPartyId));
-        if (partyLedger) {
-          masterOpBal = Math.abs(Number(partyLedger.opening_balance || partyLedger.openingBalance || 0));
-        }
-      } else {
-        // Filter customer / debtor ledgers for opening balance
-        ledgers.forEach((l: any) => {
-          const gName = String(l.group_name || l.groupName || l.group_type || l.groupType || "").toLowerCase();
-          if (
-            gName.includes("debtor") ||
-            gName.includes("customer") ||
-            gName.includes("party") ||
-            l.group_id === -101 ||
-            l.group_id === -102
-          ) {
-            masterOpBal += Math.abs(Number(l.opening_balance || l.openingBalance || 0));
-          }
-        });
+  // Helper Currency Formatter
+  const formatCurrency = (amount: number) => {
+    const validAmt = isNaN(amount) ? 0 : amount;
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+    }).format(validAmt);
+  };
+
+  // Handle Date Range Presets
+  const handleDateRangeChange = (range: string) => {
+    setSelectedDateRange(range);
+    const today = new Date();
+    const cYear = today.getFullYear();
+
+    switch (range) {
+      case "current-month": {
+        const start = `${cYear}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+        setFromDate(start);
+        setToDate(today.toISOString().split("T")[0]);
+        break;
       }
-    }
-
-    let prePeriodDebit = 0;
-    let prePeriodCredit = 0;
-
-    const salesRows: AccountSummaryRow[] = [];
-    const salesReturnRows: AccountSummaryRow[] = [];
-    const creditNoteRows: AccountSummaryRow[] = [];
-    const paymentRows: AccountSummaryRow[] = [];
-    const debitNoteRows: AccountSummaryRow[] = [];
-    const othersRows: AccountSummaryRow[] = [];
-
-    const fDate = fromDate ? new Date(fromDate) : null;
-    const tDate = toDate ? new Date(toDate) : null;
-    if (tDate) {
-      tDate.setHours(23, 59, 59, 999);
-    }
-
-    allRawVouchers.forEach((v) => {
-      const vDate = new Date(v.date);
-      if (isNaN(vDate.getTime())) return;
-
-      if (selectedPartyId !== "all") {
-        const matchesParty =
-          String(v.partyId) === selectedPartyId ||
-          v.entries?.some((e) => String(e.ledger_id) === selectedPartyId);
-        if (!matchesParty) return;
+      case "previous-month": {
+        const prevMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+        const prevYear = today.getMonth() === 0 ? cYear - 1 : cYear;
+        const start = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-01`;
+        const lastDay = new Date(prevYear, prevMonth + 1, 0).getDate();
+        const end = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+        setFromDate(start);
+        setToDate(end);
+        break;
       }
+      case "current-year": {
+        const startYear = today.getMonth() >= 3 ? cYear : cYear - 1;
+        setFromDate(`${startYear}-04-01`);
+        setToDate(`${startYear + 1}-03-31`);
+        break;
+      }
+      default:
+        break;
+    }
+  };
 
-      let vDebit = 0;
-      let vCredit = 0;
+  // Filtered Ledgers based on search term
+  const filteredLedgers = useMemo(() => {
+    if (!ledgerSearchTerm.trim()) return ledgers;
+    const term = ledgerSearchTerm.toLowerCase();
+    return ledgers.filter((l) => l.name.toLowerCase().includes(term));
+  }, [ledgers, ledgerSearchTerm]);
 
-      v.entries?.forEach((e) => {
-        const amt = Number(e.amount || 0);
-        if (e.entry_type === "debit") vDebit += amt;
-        else if (e.entry_type === "credit") vCredit += amt;
+  // Selected Ledger Details
+  const selectedLedger = useMemo(() => {
+    return ledgers.find((l) => String(l.id) === String(selectedLedgerId));
+  }, [ledgers, selectedLedgerId]);
+
+  // All Transactions normalized
+  const allTransactions = useMemo(() => {
+    return reportData?.transactions || [];
+  }, [reportData]);
+
+  // Count per voucher type
+  const voucherCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      Payment: 0,
+      Receipt: 0,
+      Contra: 0,
+      Journal: 0,
+      Sales: 0,
+      Purchase: 0,
+      "Debit Note": 0,
+      "Credit Note": 0,
+    };
+
+    allTransactions.forEach((txn) => {
+      const type = (txn.voucherType || "").trim();
+      const typeLower = type.toLowerCase();
+
+      if (typeLower === "payment") counts["Payment"]++;
+      else if (typeLower === "receipt") counts["Receipt"]++;
+      else if (typeLower === "contra") counts["Contra"]++;
+      else if (typeLower === "journal") counts["Journal"]++;
+      else if (typeLower === "sales" || typeLower === "sale") counts["Sales"]++;
+      else if (typeLower === "purchase") counts["Purchase"]++;
+      else if (typeLower.includes("debit note") || typeLower === "debitnote") counts["Debit Note"]++;
+      else if (typeLower.includes("credit note") || typeLower === "creditnote") counts["Credit Note"]++;
+    });
+
+    return counts;
+  }, [allTransactions]);
+
+  // Summary Table Data per Voucher Type (Type, Entry, Taxable Value, Total Value)
+  const voucherTypeSummary = useMemo(() => {
+    return VOUCHER_TYPES.map((vType) => {
+      const target = vType.key.toLowerCase();
+      const txns = allTransactions.filter((txn) => {
+        const type = (txn.voucherType || "").trim().toLowerCase();
+        if (target === "payment") return type === "payment";
+        if (target === "receipt") return type === "receipt";
+        if (target === "contra") return type === "contra";
+        if (target === "journal") return type === "journal";
+        if (target === "sales") return type === "sales" || type === "sale";
+        if (target === "purchase") return type === "purchase";
+        if (target === "debit note") return type.includes("debit note") || type === "debitnote";
+        if (target === "credit note") return type.includes("credit note") || type === "creditnote";
+        return type === target;
       });
 
-      if (vDebit === 0 && vCredit === 0 && v.total) {
-        vDebit = Number(v.total);
-      }
+      let taxableValue = 0;
+      let totalValue = 0;
 
-      // Pre-period accumulation for Opening Balance calculation
-      if (fDate && vDate < fDate) {
-        prePeriodDebit += vDebit;
-        prePeriodCredit += vCredit;
-        return;
-      }
+      txns.forEach((t) => {
+        taxableValue += Number(t.taxableValue || t.debit || t.credit || 0);
+        totalValue += Number(t.totalValue || t.debit || t.credit || 0);
+      });
 
-      if (tDate && vDate > tDate) return;
-
-      const partyName =
-        v.partyName ||
-        v.entries?.find((e) => e.isParty || e.entry_type === "credit")?.ledger_name ||
-        v.entries?.[0]?.ledger_name ||
-        "General Account";
-
-      const narration = v.narration || v.reference_no || "";
-      const rowAmt = v.total ? Number(v.total) : Math.max(vDebit, vCredit);
-
-      const row: AccountSummaryRow = {
-        id: v.id || `v-${Math.random()}`,
-        voucherId: v.id,
-        date: v.date,
-        voucherNumber: v.voucher_number || "-",
-        voucherType: v.voucher_type || "Voucher",
-        partyName,
-        narration,
-        debit: vDebit,
-        credit: vCredit,
-        amount: rowAmt,
-        rawVoucher: v
+      return {
+        key: vType.key,
+        label: vType.label,
+        entry: txns.length,
+        taxableValue,
+        totalValue,
+        color: vType.color,
       };
+    }).filter((item) => item.entry > 0);
+  }, [allTransactions]);
 
-      const vTypeLower = String(v.voucher_type || "").toLowerCase().trim();
+  // Transactions filtered by active Badge
+  const filteredTransactions = useMemo(() => {
+    if (!selectedVoucherBadge) return [];
+    const targetBadge = selectedVoucherBadge.toLowerCase();
 
-      if (vTypeLower === "sales_return" || vTypeLower === "sales return" || vTypeLower === "sales-return" || vTypeLower === "sale_return") {
-        salesReturnRows.push(row);
-      } else if (vTypeLower === "sales" || vTypeLower === "sale" || vTypeLower === "sales_voucher") {
-        salesRows.push(row);
-      } else if (vTypeLower === "credit_note" || vTypeLower === "credit note" || vTypeLower === "credit-note") {
-        creditNoteRows.push(row);
-      } else if (
-        vTypeLower === "receipt" ||
-        vTypeLower === "payment" ||
-        vTypeLower === "receipt_voucher" ||
-        vTypeLower === "payment_voucher" ||
-        vTypeLower === "bank"
-      ) {
-        paymentRows.push(row);
-      } else if (vTypeLower === "debit_note" || vTypeLower === "debit note" || vTypeLower === "debit-note") {
-        debitNoteRows.push(row);
-      } else {
-        othersRows.push(row);
+    return allTransactions.filter((txn) => {
+      const type = (txn.voucherType || "").trim().toLowerCase();
+
+      if (targetBadge === "payment") return type === "payment";
+      if (targetBadge === "receipt") return type === "receipt";
+      if (targetBadge === "contra") return type === "contra";
+      if (targetBadge === "journal") return type === "journal";
+      if (targetBadge === "sales") return type === "sales" || type === "sale";
+      if (targetBadge === "purchase") return type === "purchase";
+      if (targetBadge === "debit note") return type.includes("debit note") || type === "debitnote";
+      if (targetBadge === "credit note") return type.includes("credit note") || type === "creditnote";
+
+      return type === targetBadge;
+    });
+  }, [allTransactions, selectedVoucherBadge]);
+
+  // Totals for filtered transactions
+  const totals = useMemo(() => {
+    let totalQty = 0;
+    let totalTaxable = 0;
+    let totalDiscount = 0;
+    let totalIgst = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalValue = 0;
+    let totalDebit = 0;
+    let totalCredit = 0;
+    let totalAmount = 0;
+
+    filteredTransactions.forEach((t) => {
+      const hasItems = t.items && t.items.length > 0;
+      if (hasItems) {
+        totalQty += t.items!.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0);
       }
+      totalTaxable += Number(t.taxableValue || t.debit || t.credit || 0);
+      totalDiscount += Number(t.discount || 0);
+      totalIgst += Number(t.igst || 0);
+      totalCgst += Number(t.cgst || 0);
+      totalSgst += Number(t.sgst || 0);
+      totalValue += Number(t.totalValue || t.debit || t.credit || 0);
+      totalDebit += Number(t.debit || 0);
+      totalCredit += Number(t.credit || 0);
+      totalAmount += Number(t.debit || t.credit || 0);
     });
 
-    const sortRows = (rows: AccountSummaryRow[]) => {
-      return rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    };
-
-    sortRows(salesRows);
-    sortRows(salesReturnRows);
-    sortRows(creditNoteRows);
-    sortRows(paymentRows);
-    sortRows(debitNoteRows);
-    sortRows(othersRows);
-
-    const calcTotal = (rows: AccountSummaryRow[]) => {
-      return rows.reduce((sum, r) => sum + r.amount, 0);
-    };
-
-    const salesTotal = calcTotal(salesRows);
-    const salesReturnTotal = calcTotal(salesReturnRows);
-    const creditNoteTotal = calcTotal(creditNoteRows);
-    const paymentTotal = calcTotal(paymentRows);
-    const debitNoteTotal = calcTotal(debitNoteRows);
-    const othersTotal = calcTotal(othersRows);
-
-    // Format all row amounts cleanly WITHOUT any minus sign
-    const categories: CategorySummaryRow[] = [
-      {
-        key: "sales",
-        label: "Sales to customer",
-        isReduction: false,
-        rows: salesRows,
-        totalAmount: salesTotal,
-        formattedAmount: formatNumber(salesTotal)
-      },
-      {
-        key: "sales_return",
-        label: "Sales return from customer",
-        isReduction: true,
-        rows: salesReturnRows,
-        totalAmount: salesReturnTotal,
-        formattedAmount: formatNumber(salesReturnTotal)
-      },
-      {
-        key: "credit_note",
-        label: "Credit note issued to customer",
-        isReduction: true,
-        rows: creditNoteRows,
-        totalAmount: creditNoteTotal,
-        formattedAmount: formatNumber(creditNoteTotal)
-      },
-      {
-        key: "payment_received",
-        label: "Payment received from customer",
-        isReduction: true,
-        rows: paymentRows,
-        totalAmount: paymentTotal,
-        formattedAmount: formatNumber(paymentTotal)
-      },
-      {
-        key: "debit_note",
-        label: "Debit note charged to customer",
-        isReduction: false,
-        rows: debitNoteRows,
-        totalAmount: debitNoteTotal,
-        formattedAmount: formatNumber(debitNoteTotal)
-      },
-      {
-        key: "others_bal",
-        label: "Others Bal",
-        isReduction: false,
-        rows: othersRows,
-        totalAmount: othersTotal,
-        formattedAmount: formatNumber(othersTotal)
-      }
-    ];
-
-    // Calculate Opening Net Balance (always positive formatted)
-    const opBal = masterOpBal + Math.abs(prePeriodDebit - prePeriodCredit);
-
-    // Closing Net Balance formula
-    const closBal = Math.max(
-      0,
-      opBal + salesTotal - salesReturnTotal - creditNoteTotal - paymentTotal + debitNoteTotal + othersTotal
-    );
-
     return {
-      openingNetBalance: opBal,
-      summaryCategories: categories,
-      closingNetBalance: closBal
+      totalQty,
+      totalTaxable,
+      totalDiscount,
+      totalIgst,
+      totalCgst,
+      totalSgst,
+      totalValue,
+      totalDebit,
+      totalCredit,
+      totalAmount,
     };
-  }, [allRawVouchers, ledgers, selectedPartyId, fromDate, toDate]);
+  }, [filteredTransactions]);
 
-  // Format Date to DD.MM.YYYY
-  const formatDateDot = (dateStr: string) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}.${month}.${year}`;
+  // Export to Excel
+  const exportToExcel = () => {
+    if (!filteredTransactions || filteredTransactions.length === 0) return;
+
+    const wsData: any[][] = [];
+    wsData.push([companyInfo?.name || "Company Name"]);
+    wsData.push([companyInfo?.address || ""]);
+    wsData.push([]);
+    wsData.push([`Account Summary - ${selectedVoucherBadge}`]);
+    wsData.push([`Ledger: ${selectedLedger?.name || ""}`]);
+    wsData.push([`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`]);
+    wsData.push([]);
+
+    // Headers according to badge
+    if (selectedVoucherBadge === "Sales" || selectedVoucherBadge === "Purchase") {
+      wsData.push([
+        "Voucher No",
+        "Date",
+        selectedVoucherBadge === "Sales" ? "Customer" : "Supplier",
+        "Item / Details",
+        "Qty",
+        "Rate",
+        "Taxable Value",
+        "Discount",
+        "IGST",
+        "CGST",
+        "SGST",
+        "Total Value",
+        "Narration",
+      ]);
+
+      filteredTransactions.forEach((t) => {
+        const hasItems = t.items && t.items.length > 0;
+        const itemNames = hasItems ? t.items!.map((i) => i.itemName).join(", ") : "-";
+        const qtySum = hasItems ? t.items!.reduce((s, i) => s + (i.quantity || 0), 0) : "-";
+        const avgRate = hasItems ? (t.items![0]?.rate || 0) : "-";
+
+        wsData.push([
+          t.voucherNo || "",
+          formatDate(t.date),
+          t.particulars || "",
+          itemNames,
+          qtySum,
+          avgRate,
+          t.taxableValue || t.debit || t.credit || 0,
+          t.discount || 0,
+          t.igst || 0,
+          t.cgst || 0,
+          t.sgst || 0,
+          t.totalValue || t.debit || t.credit || 0,
+          t.narration || "",
+        ]);
+      });
+    } else if (selectedVoucherBadge === "Journal" || selectedVoucherBadge === "Debit Note" || selectedVoucherBadge === "Credit Note") {
+      wsData.push(["Voucher No", "Date", "Particulars / Account", "Debit", "Credit", "Narration"]);
+      filteredTransactions.forEach((t) => {
+        wsData.push([
+          t.voucherNo || "",
+          formatDate(t.date),
+          t.particulars || "",
+          t.debit || 0,
+          t.credit || 0,
+          t.narration || "",
+        ]);
+      });
+    } else {
+      // Payment, Receipt, Contra
+      wsData.push(["Voucher No", "Date", "Particulars / Account", "Amount", "Narration"]);
+      filteredTransactions.forEach((t) => {
+        const amt = t.debit || t.credit || 0;
+        wsData.push([
+          t.voucherNo || "",
+          formatDate(t.date),
+          t.particulars || "",
+          amt,
+          t.narration || "",
+        ]);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${selectedVoucherBadge} Summary`);
+    XLSX.writeFile(
+      wb,
+      `Account_Summary_${selectedVoucherBadge}_${selectedLedger?.name || "Report"}_${new Date().toISOString().split("T")[0]}.xlsx`
+    );
   };
 
-  const toggleRowExpand = (key: string) => {
-    setExpandedRows((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
-    <div className="pt-[56px] px-4 min-h-screen pb-12 print:pt-0 print:px-0">
-      {/* Loading State */}
-      {loading ? (
-        <div
-          className={`max-w-4xl mx-auto p-12 rounded-2xl text-center border mt-8 shadow-sm ${
-            theme === "dark" ? "bg-gray-800/80 border-gray-700/60" : "bg-white border-gray-200"
-          }`}
-        >
-          <RefreshCw className="animate-spin text-blue-500 mx-auto mb-3" size={32} />
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-            Calculating Account Summary...
-          </p>
-        </div>
-      ) : error ? (
-        <div className="max-w-4xl mx-auto mt-8 p-4 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center justify-between shadow-sm">
-          <p className="text-sm font-medium">{error}</p>
+    <div
+      className={`min-h-screen p-4 sm:p-6 space-y-6 ${
+        theme === "dark"
+          ? "bg-slate-900 text-slate-100"
+          : "bg-slate-50 text-slate-900"
+      }`}
+    >
+      {/* Top Action Bar / Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex items-center gap-3">
           <button
-            onClick={fetchData}
-            className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-colors shadow-sm"
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+            title="Go Back"
           >
-            Retry
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+              <Layers className="w-6 h-6 text-indigo-500" />
+              Account Summary
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Select any ledger to view voucher-type breakdown & tax details
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
+          <button
+            onClick={exportToExcel}
+            disabled={!filteredTransactions || filteredTransactions.length === 0}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Excel</span>
           </button>
         </div>
-      ) : (
-        /* PURE STATEMENT CARD (NO MINUS SIGN ANYWHERE) */
-        <div
-          className={`max-w-4xl mx-auto rounded-2xl border shadow-xl overflow-hidden my-6 transition-all ${
-            theme === "dark"
-              ? "bg-gray-900 border-gray-800 text-gray-100 shadow-gray-950/50"
-              : "bg-white border-gray-200 text-gray-900 shadow-gray-200/80"
-          }`}
-        >
-          {/* Header Banner */}
-          <div
-            className={`p-6 sm:p-8 border-b ${
-              theme === "dark"
-                ? "bg-gradient-to-r from-gray-900 via-gray-850 to-gray-900 border-gray-800"
-                : "bg-gradient-to-r from-blue-50/40 via-white to-indigo-50/30 border-gray-200"
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-900/40 px-2.5 py-1 rounded-full inline-block mb-2">
-                  Financial Statement
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-serif font-bold tracking-tight">
-                  Account Summary
-                </h1>
-              </div>
+      </div>
 
-              {/* Statement Period Badge */}
-              <div
-                className={`p-3 rounded-xl border flex items-center gap-3 ${
+      {/* Date Filter & Ledger Selector Panel */}
+      <div
+        className={`p-4 rounded-xl border ${
+          theme === "dark"
+            ? "bg-slate-800/80 border-slate-700"
+            : "bg-white border-slate-200 shadow-sm"
+        } space-y-4`}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Preset Date Selector */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              Date Period
+            </label>
+            <div className="relative">
+              <select
+                value={selectedDateRange}
+                onChange={(e) => handleDateRangeChange(e.target.value)}
+                className={`w-full p-2.5 rounded-lg border text-sm appearance-none ${
                   theme === "dark"
-                    ? "bg-gray-800/80 border-gray-700/80 text-gray-200"
-                    : "bg-white/90 border-gray-200 text-gray-800 shadow-sm"
+                    ? "bg-slate-900 border-slate-700 text-slate-100"
+                    : "bg-slate-50 border-slate-300 text-slate-900"
                 }`}
               >
-                <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                  <Calendar size={18} />
-                </div>
-                <div>
-                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">
-                    Statement Period
-                  </span>
-                  <span className="font-mono font-bold text-sm tracking-tight">
-                    {formatDateDot(fromDate)} <span className="text-gray-400 text-xs font-normal px-1">TO</span> {formatDateDot(toDate)}
-                  </span>
-                </div>
-              </div>
+                <option value="current-year">Current Financial Year</option>
+                <option value="current-month">Current Month</option>
+                <option value="previous-month">Previous Month</option>
+                <option value="custom">Custom Date Range</option>
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-3 top-3 pointer-events-none opacity-50" />
             </div>
           </div>
 
-          {/* Statement Rows Body */}
-          <div className="p-4 sm:p-8">
-            <div className="space-y-1">
-              {/* Row 1: Opening Net Balance */}
-              <div
-                className={`py-4 px-4 sm:px-6 rounded-xl flex justify-between items-center transition-all ${
+          {/* From Date */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              From Date
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setSelectedDateRange("custom");
+              }}
+              className={`w-full p-2.5 rounded-lg border text-sm ${
+                theme === "dark"
+                  ? "bg-slate-900 border-slate-700 text-slate-100"
+                  : "bg-slate-50 border-slate-300 text-slate-900"
+              }`}
+            />
+          </div>
+
+          {/* To Date */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setSelectedDateRange("custom");
+              }}
+              className={`w-full p-2.5 rounded-lg border text-sm ${
+                theme === "dark"
+                  ? "bg-slate-900 border-slate-700 text-slate-100"
+                  : "bg-slate-50 border-slate-300 text-slate-900"
+              }`}
+            />
+          </div>
+
+          {/* Select Ledger Dropdown / Searchable Select */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              Select Ledger *
+            </label>
+            {loadingLedgers ? (
+              <div className="p-2.5 rounded-lg border text-sm bg-slate-100 dark:bg-slate-800 text-slate-400">
+                Loading ledgers...
+              </div>
+            ) : (
+              <select
+                value={selectedLedgerId}
+                onChange={(e) => setSelectedLedgerId(e.target.value)}
+                className={`w-full p-2.5 rounded-lg border text-sm font-medium ${
                   theme === "dark"
-                    ? "bg-gray-800/60 hover:bg-gray-800 border border-gray-750"
-                    : "bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70"
+                    ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-indigo-500"
+                    : "bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500"
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                    <TrendingUp size={16} />
-                  </div>
-                  <span className="font-serif font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">
-                    Opening Net Balance
-                  </span>
-                </div>
-                <span className="font-mono font-bold text-lg sm:text-xl text-gray-900 dark:text-gray-100">
-                  {formatNumber(openingNetBalance)}
-                </span>
+                <option value="">-- Choose a Ledger --</option>
+                {filteredLedgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* Selected Ledger Info Banner */}
+        {selectedLedger && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 text-xs">
+            <div className="flex items-center gap-2 font-medium">
+              <span className="text-slate-500 dark:text-slate-400">Active Ledger:</span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                {selectedLedger.name}
+              </span>
+            </div>
+            {reportData?.summary && (
+              <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 font-medium">
+                <span>Total Transactions: <strong className="text-slate-900 dark:text-slate-100">{reportData.summary.transactionCount}</strong></span>
+                <span>Opening: <strong className="text-slate-900 dark:text-slate-100">{formatCurrency(reportData.summary.openingBalance)}</strong></span>
+                <span>Closing: <strong className="text-slate-900 dark:text-slate-100">{formatCurrency(reportData.summary.closingBalance)}</strong></span>
               </div>
+            )}
+          </div>
+        )}
+      </div>
 
-              {/* Rows 2 to 7: The Categories */}
-              {summaryCategories.map((cat) => {
-                const isExpanded = expandedRows[cat.key];
+      {/* Voucher Type Summary Table (Interactive Selector) */}
+      {selectedLedgerId && voucherTypeSummary.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Voucher Type Summary (Click any row to view details below)
+            </label>
+            <span className="text-xs text-indigo-500 font-semibold">
+              Selected View: {selectedVoucherBadge}
+            </span>
+          </div>
 
-                return (
-                  <div key={cat.key} className="group">
-                    {/* Category Summary Row */}
-                    <div
-                      onClick={() => toggleRowExpand(cat.key)}
-                      className={`py-3.5 px-4 sm:px-6 rounded-xl flex justify-between items-center transition-all cursor-pointer select-none border border-transparent ${
-                        theme === "dark"
-                          ? "hover:bg-gray-800/70 hover:border-gray-700/60"
-                          : "hover:bg-blue-50/40 hover:border-blue-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          className={`p-1 rounded-md transition-colors ${
-                            theme === "dark"
-                              ? "text-gray-400 group-hover:text-blue-400 group-hover:bg-gray-800"
-                              : "text-gray-400 group-hover:text-blue-600 group-hover:bg-blue-100/60"
-                          }`}
-                          title="Click to toggle voucher entries"
-                        >
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </button>
-
-                        <span className="font-serif font-medium text-base sm:text-lg text-gray-800 dark:text-gray-200">
-                          {cat.label}
-                        </span>
-
-                        {cat.rows.length > 0 && (
-                          <span className="text-[11px] font-sans px-2 py-0.5 font-semibold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                            {cat.rows.length} {cat.rows.length === 1 ? "entry" : "entries"}
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="font-mono font-semibold text-base sm:text-lg tracking-tight text-gray-900 dark:text-gray-100">
-                        {cat.formattedAmount}
-                      </span>
-                    </div>
-
-                    {/* Expandable Voucher Breakdown Table */}
-                    {isExpanded && (
-                      <div
-                        className={`my-3 ml-4 sm:ml-10 mr-2 p-4 rounded-xl border transition-all ${
-                          theme === "dark"
-                            ? "bg-gray-850 border-gray-750"
-                            : "bg-slate-50/80 border-slate-200"
+          <div
+            className={`rounded-xl border ${
+              theme === "dark"
+                ? "bg-slate-800/80 border-slate-700"
+                : "bg-white border-slate-200 shadow-sm"
+            } overflow-hidden`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
+                      theme === "dark"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
+                    }`}
+                  >
+                    <th className="p-3.5">Type</th>
+                    <th className="p-3.5 text-center">Entry</th>
+                    <th className="p-3.5 text-right">Taxable Value</th>
+                    <th className="p-3.5 text-right">Total Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  {voucherTypeSummary.map((row) => {
+                    const isSelected = selectedVoucherBadge === row.key;
+                    return (
+                      <tr
+                        key={row.key}
+                        onClick={() => setSelectedVoucherBadge(isSelected ? null : row.key)}
+                        className={`cursor-pointer transition-all duration-150 ${
+                          isSelected
+                            ? theme === "dark"
+                              ? "bg-indigo-950/80 font-bold border-l-4 border-l-indigo-500 text-slate-100"
+                              : "bg-indigo-100/80 font-bold border-l-4 border-l-indigo-600 text-slate-900"
+                            : "hover:bg-slate-100 dark:hover:bg-slate-700/40 text-slate-800 dark:text-slate-200"
                         }`}
                       >
-                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200 dark:border-gray-700 text-xs">
-                          <span className="font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                            <FileText size={14} />
-                            {cat.label} — Vouchers ({cat.rows.length})
+                        <td className="p-3.5 font-extrabold text-sm flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full ${row.color}`}></span>
+                          <span>{row.label}</span>
+                          {isSelected && (
+                            <span className="ml-1 text-[10px] uppercase font-black px-2 py-0.5 rounded bg-indigo-600 text-white">
+                              Selected
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-center font-mono">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
+                              row.entry > 0
+                                ? "bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            {row.entry}
                           </span>
-                          <span className="font-mono text-gray-500">
-                            Subtotal: {cat.formattedAmount}
-                          </span>
-                        </div>
-
-                        {cat.rows.length === 0 ? (
-                          <p className="text-xs text-gray-400 italic py-3 text-center">
-                            No vouchers recorded in this category during period.
-                          </p>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs border-collapse">
-                              <thead>
-                                <tr
-                                  className={`border-b text-gray-500 dark:text-gray-400 font-semibold ${
-                                    theme === "dark" ? "border-gray-700" : "border-gray-200"
-                                  }`}
-                                >
-                                  <th className="py-2 px-3">Date</th>
-                                  <th className="py-2 px-3">Voucher No</th>
-                                  <th className="py-2 px-3">Party Name</th>
-                                  <th className="py-2 px-3">Narration</th>
-                                  <th className="py-2 px-3 text-right">Amount (₹)</th>
-                                  <th className="py-2 px-3 text-center print:hidden">View</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-200/60 dark:divide-gray-700/60">
-                                {cat.rows.map((r) => (
-                                  <tr
-                                    key={r.id}
-                                    className={`transition-colors ${
-                                      theme === "dark"
-                                        ? "hover:bg-gray-800/80"
-                                        : "hover:bg-white"
-                                    }`}
-                                  >
-                                    <td className="py-2 px-3 font-mono whitespace-nowrap">{r.date}</td>
-                                    <td className="py-2 px-3 font-mono font-semibold text-blue-600 dark:text-blue-400">
-                                      {r.voucherNumber}
-                                    </td>
-                                    <td className="py-2 px-3 font-medium text-gray-900 dark:text-gray-100">
-                                      {r.partyName}
-                                    </td>
-                                    <td className="py-2 px-3 text-gray-500 max-w-xs truncate" title={r.narration}>
-                                      {r.narration || "-"}
-                                    </td>
-                                    <td className="py-2 px-3 text-right font-mono font-medium">
-                                      {formatNumber(r.amount)}
-                                    </td>
-                                    <td className="py-2 px-3 text-center print:hidden">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedVoucher(r.rawVoucher);
-                                        }}
-                                        className="p-1 rounded text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                        title="View Voucher"
-                                      >
-                                        <Eye size={14} />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Row 8: Closing Net Balance */}
-              <div
-                className={`py-4 px-4 sm:px-6 rounded-xl flex justify-between items-center transition-all mt-4 border-t-2 ${
-                  theme === "dark"
-                    ? "bg-gradient-to-r from-gray-850 via-gray-800 to-gray-850 border-emerald-500/50 shadow-inner"
-                    : "bg-gradient-to-r from-emerald-50/60 via-teal-50/40 to-emerald-50/60 border-emerald-500/60 shadow-sm"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
-                    <TrendingDown size={16} />
-                  </div>
-                  <span className="font-serif font-bold text-lg sm:text-xl text-gray-900 dark:text-gray-100">
-                    Closing Net Balance
-                  </span>
-                </div>
-
-                <span className="font-mono font-bold text-xl sm:text-2xl text-emerald-700 dark:text-emerald-400 tracking-tight">
-                  {formatNumber(closingNetBalance)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Voucher Details Modal */}
-      {selectedVoucher && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 font-sans animate-fade-in">
-          <div
-            className={`w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border ${
-              theme === "dark" ? "bg-gray-850 border-gray-700 text-gray-100" : "bg-white border-gray-200 text-gray-900"
-            }`}
-          >
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <FileText className="text-blue-500" size={18} />
-                Voucher Details: {selectedVoucher.voucher_number || selectedVoucher.id}
-              </h3>
-              <button
-                onClick={() => setSelectedVoucher(null)}
-                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-150 dark:border-gray-750">
-                  <span className="text-gray-400 block mb-0.5">Voucher Type</span>
-                  <span className="font-semibold text-sm">{selectedVoucher.voucher_type || "N/A"}</span>
-                </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-150 dark:border-gray-750">
-                  <span className="text-gray-400 block mb-0.5">Date</span>
-                  <span className="font-semibold font-mono text-sm">{selectedVoucher.date}</span>
-                </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-150 dark:border-gray-750">
-                  <span className="text-gray-400 block mb-0.5">Voucher Number</span>
-                  <span className="font-semibold font-mono text-sm">{selectedVoucher.voucher_number || "-"}</span>
-                </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-150 dark:border-gray-750">
-                  <span className="text-gray-400 block mb-0.5">Party Name</span>
-                  <span className="font-semibold text-sm">{selectedVoucher.partyName || "N/A"}</span>
-                </div>
-              </div>
-
-              {selectedVoucher.narration && (
-                <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg text-xs border border-gray-150 dark:border-gray-750">
-                  <span className="font-semibold text-gray-400 block mb-1 uppercase text-[10px] tracking-wider">
-                    Narration
-                  </span>
-                  <p className="text-gray-700 dark:text-gray-200">{selectedVoucher.narration}</p>
-                </div>
-              )}
-
-              <div>
-                <h4 className="font-semibold text-xs mb-2 uppercase tracking-wider text-gray-500">
-                  Accounting Entries
-                </h4>
-                <div className="border rounded-xl overflow-hidden border-gray-200 dark:border-gray-700">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 font-semibold text-gray-600 dark:text-gray-300">
-                        <th className="p-2.5">Ledger</th>
-                        <th className="p-2.5">Type</th>
-                        <th className="p-2.5 text-right">Amount (₹)</th>
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                          {formatCurrency(row.taxableValue)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-black text-base text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(row.totalValue)}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {selectedVoucher.entries && selectedVoucher.entries.length > 0 ? (
-                        selectedVoucher.entries.map((e, idx) => (
-                          <tr key={idx}>
-                            <td className="p-2.5 font-medium">{e.ledger_name || `Ledger #${e.ledger_id}`}</td>
-                            <td className="p-2.5">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  e.entry_type === "debit"
-                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-                                    : "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                                }`}
-                              >
-                                {e.entry_type}
-                              </span>
-                            </td>
-                            <td className="p-2.5 text-right font-mono font-medium">
-                              {Number(e.amount || 0).toLocaleString("en-IN", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="p-4 text-center text-gray-400">
-                            Total Amount: ₹
-                            {Number(selectedVoucher.total || 0).toLocaleString("en-IN", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedVoucher(null)}
-                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg text-xs font-medium transition-colors"
-              >
-                Close
-              </button>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
+
+      {/* Result Section */}
+      <div
+        className={`rounded-xl border ${
+          theme === "dark"
+            ? "bg-slate-800/80 border-slate-700"
+            : "bg-white border-slate-200 shadow-sm"
+        } overflow-hidden`}
+      >
+        {/* Loading State */}
+        {loadingTxns && (
+          <div className="p-12 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 mx-auto animate-spin text-indigo-500" />
+            <p className="text-sm font-medium text-slate-500">
+              Loading transaction data for {selectedLedger?.name || "selected ledger"}...
+            </p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!loadingTxns && error && (
+          <div className="p-8 text-center space-y-2">
+            <AlertCircle className="w-10 h-10 mx-auto text-rose-500" />
+            <p className="text-base font-semibold text-rose-600">{error}</p>
+            <p className="text-xs text-slate-400">Please try again or select another ledger.</p>
+          </div>
+        )}
+
+        {/* Prompt state when no ledger selected */}
+        {!loadingTxns && !error && !selectedLedgerId && (
+          <div className="p-12 text-center space-y-3">
+            <FileText className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
+            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+              No Ledger Selected
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Please select a ledger from the dropdown above to view its transaction summary.
+            </p>
+          </div>
+        )}
+
+        {/* Prompt state when ledger selected but no voucher type row clicked yet */}
+        {!loadingTxns && !error && selectedLedgerId && !selectedVoucherBadge && (
+          <div className="p-10 text-center space-y-2">
+            <Layers className="w-10 h-10 mx-auto text-indigo-400 dark:text-indigo-500" />
+            <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
+              Click a Voucher Type to View Details
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Select any row from the summary table above to view detailed transaction breakdown.
+            </p>
+          </div>
+        )}
+
+        {/* Empty state when voucher type clicked but 0 transactions */}
+        {!loadingTxns && !error && selectedLedgerId && selectedVoucherBadge && filteredTransactions.length === 0 && (
+          <div className="p-12 text-center space-y-3">
+            <CheckCircle2 className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
+            <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">
+              No {selectedVoucherBadge} Transactions Found
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              No {selectedVoucherBadge} vouchers exist for <strong>{selectedLedger?.name}</strong> in the period ({formatDate(fromDate)} to {formatDate(toDate)}).
+            </p>
+          </div>
+        )}
+
+        {/* Table Display */}
+        {!loadingTxns && !error && selectedLedgerId && filteredTransactions.length > 0 && (
+          <div className="overflow-x-auto">
+            {/* Sales & Purchase Specific Table */}
+            {(selectedVoucherBadge === "Sales" || selectedVoucherBadge === "Purchase") ? (
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
+                      theme === "dark"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
+                    }`}
+                  >
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">{selectedVoucherBadge === "Sales" ? "Customer" : "Supplier"}</th>
+                    <th className="p-3.5">Item / Product</th>
+                    <th className="p-3.5 text-right">Qty</th>
+                    <th className="p-3.5 text-right">Rate</th>
+                    <th className="p-3.5 text-right">Taxable Value</th>
+                    <th className="p-3.5 text-right">Discount</th>
+                    <th className="p-3.5 text-right">IGST</th>
+                    <th className="p-3.5 text-right">CGST</th>
+                    <th className="p-3.5 text-right">SGST</th>
+                    <th className="p-3.5 text-right">Total Value</th>
+                    <th className="p-3.5">Narration</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  {filteredTransactions.map((t, index) => {
+                    const hasItems = t.items && t.items.length > 0;
+                    const itemNames = hasItems
+                      ? t.items!.map((i) => i.itemName).join(", ")
+                      : "General Goods/Services";
+                    const totalQty = hasItems
+                      ? t.items!.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0)
+                      : "-";
+                    const avgRate = hasItems
+                      ? formatCurrency(t.items![0]?.rate || 0)
+                      : "-";
+
+                    return (
+                      <tr
+                        key={t.id || index}
+                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
+                          index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
+                        }`}
+                      >
+                        <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
+                          {t.voucherNo || "-"}
+                        </td>
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
+                          {formatDate(t.date)}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                          {t.particulars || "-"}
+                        </td>
+                        <td className="p-3.5 text-slate-800 dark:text-slate-200 font-medium max-w-xs truncate" title={itemNames}>
+                          {itemNames}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold">{totalQty}</td>
+                        <td className="p-3.5 text-right font-mono font-bold">{avgRate}</td>
+                        <td className="p-3.5 text-right font-mono font-extrabold">
+                          {formatCurrency(t.taxableValue || t.debit || t.credit || 0)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
+                          {formatCurrency(t.discount || 0)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
+                          {formatCurrency(t.igst || 0)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
+                          {formatCurrency(t.cgst || 0)}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-500">
+                          {formatCurrency(t.sgst || 0)}
+                        </td>
+                        <td className="p-3.5 text-right font-black font-mono text-emerald-600 dark:text-emerald-400 text-sm">
+                          {formatCurrency(t.totalValue || t.debit || t.credit || 0)}
+                        </td>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={t.narration}>
+                          {t.narration || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
+                      theme === "dark"
+                        ? "bg-slate-900 text-amber-400 border-indigo-500"
+                        : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
+                    }`}
+                  >
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={4}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black">{totals.totalQty > 0 ? totals.totalQty : "-"}</td>
+                    <td className="p-4 text-right font-mono font-black">-</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalTaxable)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalDiscount)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalIgst)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalCgst)}</td>
+                    <td className="p-4 text-right font-mono font-black">{formatCurrency(totals.totalSgst)}</td>
+                    <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg">
+                      {formatCurrency(totals.totalValue)}
+                    </td>
+                    <td className="p-4"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            ) : (selectedVoucherBadge === "Journal" || selectedVoucherBadge === "Debit Note" || selectedVoucherBadge === "Credit Note") ? (
+              /* Journal, Debit Note, Credit Note Table */
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
+                      theme === "dark"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
+                    }`}
+                  >
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">Particulars / Account</th>
+                    <th className="p-3.5 text-right">Debit</th>
+                    <th className="p-3.5 text-right">Credit</th>
+                    <th className="p-3.5">Narration</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  {filteredTransactions.map((t, index) => (
+                    <tr
+                      key={t.id || index}
+                      className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
+                        index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
+                      }`}
+                    >
+                      <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
+                        {t.voucherNo || "-"}
+                      </td>
+                      <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
+                        {formatDate(t.date)}
+                      </td>
+                      <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                        {t.particulars || "-"}
+                      </td>
+                      <td className="p-3.5 text-right font-mono font-extrabold text-rose-600 dark:text-rose-400">
+                        {t.debit > 0 ? formatCurrency(t.debit) : "-"}
+                      </td>
+                      <td className="p-3.5 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {t.credit > 0 ? formatCurrency(t.credit) : "-"}
+                      </td>
+                      <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
+                        {t.narration || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
+                      theme === "dark"
+                        ? "bg-slate-900 text-amber-400 border-indigo-500"
+                        : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
+                    }`}
+                  >
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black text-rose-600 dark:text-rose-400 text-base sm:text-lg">
+                      {formatCurrency(totals.totalDebit)}
+                    </td>
+                    <td className="p-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-base sm:text-lg">
+                      {formatCurrency(totals.totalCredit)}
+                    </td>
+                    <td className="p-4"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            ) : (
+              /* Payment, Receipt, Contra Table */
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr
+                    className={`border-b font-extrabold text-xs uppercase tracking-wider ${
+                      theme === "dark"
+                        ? "bg-slate-900/90 text-slate-200 border-slate-700"
+                        : "bg-slate-200/80 text-slate-800 border-slate-300"
+                    }`}
+                  >
+                    <th className="p-3.5">Voucher No</th>
+                    <th className="p-3.5">Date</th>
+                    <th className="p-3.5">Particulars / Account</th>
+                    <th className="p-3.5 text-right">Amount</th>
+                    <th className="p-3.5">Narration</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  {filteredTransactions.map((t, index) => {
+                    const amt = t.debit || t.credit || 0;
+                    return (
+                      <tr
+                        key={t.id || index}
+                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-700/40 transition ${
+                          index % 2 === 0 ? "" : theme === "dark" ? "bg-slate-800/40" : "bg-slate-50/50"
+                        }`}
+                      >
+                        <td className="p-3.5 font-extrabold text-indigo-600 dark:text-indigo-400">
+                          {t.voucherNo || "-"}
+                        </td>
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300 font-semibold whitespace-nowrap">
+                          {formatDate(t.date)}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                          {t.particulars || "-"}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-black text-slate-900 dark:text-slate-100 text-sm">
+                          {formatCurrency(amt)}
+                        </td>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400 max-w-sm truncate" title={t.narration}>
+                          {t.narration || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr
+                    className={`border-t-2 border-b-2 text-sm sm:text-base font-black tracking-wide ${
+                      theme === "dark"
+                        ? "bg-slate-900 text-amber-400 border-indigo-500"
+                        : "bg-slate-200 text-slate-900 border-indigo-600 shadow-inner"
+                    }`}
+                  >
+                    <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black" colSpan={3}>TOTAL</td>
+                    <td className="p-4 text-right font-mono font-black text-slate-900 dark:text-slate-100 text-base sm:text-lg">
+                      {formatCurrency(totals.totalAmount)}
+                    </td>
+                    <td className="p-4"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

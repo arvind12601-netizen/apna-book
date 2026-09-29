@@ -126,6 +126,7 @@ import B2C from "./components/reports/B2C";
 import Consolidation from "./components/reports/Consolidation";
 import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
 import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
+import Form26ASReport from "./components/reports/Form26ASReport";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
 import QuantityCorrection from "./components/reports/QuantityCorrection";
@@ -1752,6 +1753,26 @@ function App() {
                   element={
                     <RequireCompany>
                       <ReceiptPaymentAccount />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/26as"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <Form26ASReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/26as-report"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <Form26ASReport />
+                      </RequireSubscription>
                     </RequireCompany>
                   }
                 />
