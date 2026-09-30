@@ -17,6 +17,7 @@ interface FixedAssetRow {
   salesAfter: number;
   depreciationRate: number;
   depreciationAmount: number;
+  voucherDepreciation: number;
   netBlock: number;
 }
 
@@ -119,8 +120,15 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
     setError(null);
 
     try {
-      const startStr = finYearDates.startDate.toISOString().split("T")[0];
-      const endStr = finYearDates.endDate.toISOString().split("T")[0];
+      const formatYYYYMMDD = (d: Date) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      };
+
+      const startStr = formatYYYYMMDD(finYearDates.startDate);
+      const endStr = formatYYYYMMDD(finYearDates.endDate);
 
       // Call API endpoint
       const apiUrl = `${import.meta.env.VITE_API_URL}/api/fixed-assets-schedule?company_id=${companyId}&owner_type=${ownerType}&owner_id=${ownerId}&startDate=${startStr}&endDate=${endStr}`;
@@ -143,6 +151,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
         const addAfter = item.additionAfter || 0;
         const salesBefore = item.salesBefore || 0;
         const salesAfter = item.salesAfter || 0;
+        const voucherDep = item.voucherDepreciation || 0;
 
         // Companies Act 2013 180-day depreciation formula
         const netBaseBefore = opBal + addBefore - salesBefore;
@@ -151,12 +160,10 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
         let depAmt = 0;
         if (customDepAmounts[ledgerId] !== undefined) {
           depAmt = customDepAmounts[ledgerId];
-        } else if (rate > 0) {
-          const depBefore = (Math.max(0, netBaseBefore) * rate) / 100;
-          const depAfter = (Math.max(0, netBaseAfter) * (rate / 2)) / 100;
-          depAmt = depBefore + depAfter;
-        } else if (item.voucherDepreciation > 0) {
-          depAmt = item.voucherDepreciation;
+        } else {
+          const depBefore = rate > 0 ? (Math.max(0, netBaseBefore) * rate) / 100 : 0;
+          const depAfter = rate > 0 ? (Math.max(0, netBaseAfter) * (rate / 2)) / 100 : 0;
+          depAmt = voucherDep + depBefore + depAfter;
         }
 
         const totalAdditions = addBefore + addAfter;
@@ -174,6 +181,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
           salesAfter: salesAfter,
           depreciationRate: rate,
           depreciationAmount: depAmt,
+          voucherDepreciation: voucherDep,
           netBlock,
         };
       });
@@ -236,21 +244,31 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
   const handleRateChange = (ledgerId: number, newRate: number) => {
     const updatedRates = { ...customRates, [ledgerId]: newRate };
     setCustomRates(updatedRates);
+
+    // Clear custom manual amount override when rate is changed so rate calculation takes effect
+    const updatedAmounts = { ...customDepAmounts };
+    delete updatedAmounts[ledgerId];
+    setCustomDepAmounts(updatedAmounts);
+
     try {
       localStorage.setItem(`FIXED_ASSET_RATES_${companyId}`, JSON.stringify(updatedRates));
+      localStorage.setItem(`FIXED_ASSET_DEP_AMOUNTS_${companyId}`, JSON.stringify(updatedAmounts));
     } catch (e) {
       console.error("Error saving rates:", e);
     }
 
-    // Recalculate row
+    // Recalculate row (Voucher Dep + Full rate for Before cutoff + Half rate for After cutoff)
     setRowsData((prev) =>
       prev.map((row) => {
         if (row.ledgerId === ledgerId) {
           const netBaseBefore = row.openingBalance + row.additionBefore - row.salesBefore;
           const netBaseAfter = row.additionAfter - row.salesAfter;
-          const depBefore = (Math.max(0, netBaseBefore) * newRate) / 100;
-          const depAfter = (Math.max(0, netBaseAfter) * (newRate / 2)) / 100;
-          const newDepAmt = customDepAmounts[ledgerId] !== undefined ? customDepAmounts[ledgerId] : depBefore + depAfter;
+
+          const depBefore = newRate > 0 ? (Math.max(0, netBaseBefore) * newRate) / 100 : 0;
+          const depAfter = newRate > 0 ? (Math.max(0, netBaseAfter) * (newRate / 2)) / 100 : 0;
+          const voucherDep = row.voucherDepreciation || 0;
+          const newDepAmt = voucherDep + depBefore + depAfter;
+
           const newNetBlock =
             row.openingBalance + row.additionBefore + row.additionAfter - (row.salesBefore + row.salesAfter) - newDepAmt;
 
@@ -575,18 +593,26 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
 
                       {/* AMOUNT OF DEP. */}
                       <td className="border border-gray-400 dark:border-gray-600 p-1 text-right font-mono">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={row.depreciationAmount === 0 ? "" : row.depreciationAmount.toFixed(2)}
-                          placeholder="0.00"
-                          onChange={(e) => handleDepAmountChange(row.ledgerId, parseFloat(e.target.value) || 0)}
-                          className={`w-20 text-right p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
-                            isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                          }`}
-                        />
-                        <span className="hidden print:inline">{formatINR(row.depreciationAmount)}</span>
+                        <div className="flex flex-col items-end">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={row.depreciationAmount === 0 ? "" : row.depreciationAmount.toFixed(2)}
+                            placeholder="0.00"
+                            onChange={(e) => handleDepAmountChange(row.ledgerId, parseFloat(e.target.value) || 0)}
+                            className={`w-20 text-right p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
+                              isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
+                            }`}
+                          />
+                          {row.voucherDepreciation > 0 && (
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 print:hidden font-sans">
+                              Voucher: ₹{row.voucherDepreciation.toFixed(2)}
+                              {row.depreciationRate > 0 && ` + Calc: ₹${(row.depreciationAmount - row.voucherDepreciation).toFixed(2)}`}
+                            </span>
+                          )}
+                          <span className="hidden print:inline">{formatINR(row.depreciationAmount)}</span>
+                        </div>
                       </td>
 
                       {/* NET BLOCK AS ON END */}
