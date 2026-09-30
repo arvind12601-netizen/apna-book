@@ -15,12 +15,24 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+interface ReportItem {
+  icon: React.ReactNode;
+  name: string;
+  path: string;
+  isPending?: boolean;
+}
+
+interface ReportCategory {
+  title: string;
+  items: ReportItem[];
+}
+
 const ReportsIndex: React.FC = () => {
   const { theme } = useAppContext(); // 👈 get role here
   const navigate = useNavigate();
   // Read role from localStorage (always lowercase for safety)
   const role: string | null = localStorage.getItem("supplier")?.toLowerCase() || null;
-  const reportCategories = [
+  const reportCategories: ReportCategory[] = [
     {
       title: 'Accounting Reports',
       items: [
@@ -37,8 +49,9 @@ const ReportsIndex: React.FC = () => {
         { icon: <FileText size={20} />, name: 'Schedule of Fixed Assets', path: '/app/reports/fixed-assets-schedule' },
         { icon: <FileText size={20} />, name: 'Ledger Correction', path: '/app/reports/ledger-caraction' },
         { icon: <FileText size={20} />, name: 'Account Summary', path: '/app/reports/account-summary' },
-        { icon: <FileText size={20} />, name: 'Receipt and Payment Account', path: '/app/reports/receipt-payment-account' },
-        { icon: <ShieldCheck size={20} />, name: '26AS Report', path: '/app/reports/26as' }
+        { icon: <FileText size={20} />, name: 'Receipt and Payment Account', path: '/app/reports/receipt-payment-account', isPending: true },
+        { icon: <ShieldCheck size={20} />, name: '26AB Report', path: '/app/reports/26as', isPending: true },
+        { icon: <FileText size={20} />, name: 'Tax Status', path: '/app/reports/tax-status', isPending: true }
       ]
     },
     {
@@ -73,7 +86,9 @@ const ReportsIndex: React.FC = () => {
         { icon: <Calendar size={20} />, name: 'B2C', path: '/app/reports/b2c' },
         { icon: <Calendar size={20} />, name: 'B2B HSN', path: '/app/reports/b2bhsn' },
         { icon: <Calendar size={20} />, name: 'B2C HSN', path: '/app/reports/b2chsn' },
-        { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsn' }
+        { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsn' },
+        { icon: <FileText size={20} />, name: 'Gstr1 vs Gstr3b', path: '/app/reports/gstr1-vs-gstr3b', isPending: true },
+        { icon: <FileText size={20} />, name: 'Gstr2a vs Gstr2b Matching', path: '/app/reports/gstr2a-vs-gstr2b', isPending: true }
       ]
     },
     {
@@ -86,7 +101,11 @@ const ReportsIndex: React.FC = () => {
         { icon: <Calendar size={20} />, name: 'B2C', path: '/app/reports/b2cpurchase' },
         { icon: <Calendar size={20} />, name: 'B2B HSN', path: '/app/reports/b2bhsnpurchase' },
         { icon: <Calendar size={20} />, name: 'B2C HSN', path: '/app/reports/b2chsnpurchase' },
-        { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsnpurchase' }
+        { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsnpurchase' },
+        { icon: <FileText size={20} />, name: 'Books vs 2A', path: '/app/reports/books-vs-2a', isPending: true },
+        { icon: <FileText size={20} />, name: 'Books vs Gstr1', path: '/app/reports/books-vs-gstr1', isPending: true },
+        { icon: <FileText size={20} />, name: 'Books vs 2B', path: '/app/reports/books-vs-2b', isPending: true },
+        { icon: <FileText size={20} />, name: 'Books vs AIS Matching', path: '/app/reports/books-vs-ais', isPending: true }
       ]
     }
   ];
@@ -112,18 +131,30 @@ const ReportsIndex: React.FC = () => {
                   <button
                     key={itemIndex}
                     onClick={() => navigate(item.path)}
-                    className={`p-4 rounded-lg flex flex-col items-center text-center transition-colors ${theme === 'dark'
-                        ? 'bg-gray-700 hover:bg-gray-600'
-                        : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
+                    className={`p-4 rounded-lg flex flex-col items-center text-center transition-colors ${
+                      item.isPending
+                        ? theme === 'dark'
+                          ? 'bg-red-950/30 border border-red-800/50 hover:bg-red-900/40 text-red-400'
+                          : 'bg-red-50 border border-red-200 hover:bg-red-100 text-red-600'
+                        : theme === 'dark'
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-800'
+                    }`}
                   >
-                    <div className={`p-2 rounded-full mb-2 ${theme === 'dark'
-                        ? 'bg-gray-600'
-                        : 'bg-blue-50'
-                      }`}>
+                    <div className={`p-2 rounded-full mb-2 ${
+                      item.isPending
+                        ? theme === 'dark'
+                          ? 'bg-red-900/60 text-red-300'
+                          : 'bg-red-100 text-red-600'
+                        : theme === 'dark'
+                          ? 'bg-gray-600'
+                          : 'bg-blue-50'
+                    }`}>
                       {item.icon}
                     </div>
-                    <span>{item.name}</span>
+                    <span className={item.isPending ? 'font-medium text-red-600 dark:text-red-400' : ''}>
+                      {item.name}
+                    </span>
                   </button>
                 ))}
             </div>

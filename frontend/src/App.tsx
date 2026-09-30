@@ -127,6 +127,8 @@ import Consolidation from "./components/reports/Consolidation";
 import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
 import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
 import Form26ASReport from "./components/reports/Form26ASReport";
+import TaxStatusReport from "./components/reports/TaxStatusReport";
+import ReportComingSoon from "./components/reports/ReportComingSoon";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
 import QuantityCorrection from "./components/reports/QuantityCorrection";
@@ -1772,6 +1774,76 @@ function App() {
                     <RequireCompany>
                       <RequireSubscription>
                         <Form26ASReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/tax-status"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <TaxStatusReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/gstr1-vs-gstr3b"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="GSTR-1 vs GSTR-3B" category="Sales Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/gstr2a-vs-gstr2b"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="GSTR-2A vs GSTR-2B Matching" category="Sales Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/books-vs-2a"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Books vs 2A" category="Purchase Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/books-vs-gstr1"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Books vs Gstr1" category="Purchase Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/books-vs-2b"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Books vs 2B" category="Purchase Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/books-vs-ais"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Books vs AIS Matching" category="Purchase Reports" />
                       </RequireSubscription>
                     </RequireCompany>
                   }
