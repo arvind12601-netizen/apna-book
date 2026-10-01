@@ -57,6 +57,7 @@ router.get('/api/fixed-assets-schedule', async (req, res) => {
         CAST(l.opening_balance AS DECIMAL(15,2)) AS opening_balance,
         l.balance_type,
         l.closing_balance,
+        l.depreciation_rate,
         lg.name AS group_name,
         lg.type AS group_type
       FROM ledgers l
@@ -258,6 +259,7 @@ router.get('/api/fixed-assets-schedule', async (req, res) => {
         salesBefore: tx.salesBefore,
         salesAfter: tx.salesAfter,
         voucherDepreciation: tx.voucherDepreciation,
+        depreciationRate: l.depreciation_rate !== null && l.depreciation_rate !== undefined ? parseFloat(l.depreciation_rate) : 0,
         groupName: l.group_name || 'Fixed Assets'
       };
     });

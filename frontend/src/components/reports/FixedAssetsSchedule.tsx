@@ -204,7 +204,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
 
           const fallbackRows: FixedAssetRow[] = faLedgers.map((l: any, idx: number) => {
             const ledgerId = l.id;
-            const rate = customRates[ledgerId] || 0;
+            const rate = customRates[ledgerId] !== undefined ? customRates[ledgerId] : parseFloat(l.depreciationRate || l.depreciation_rate || 0);
             const opBal = parseFloat(l.openingBalance || l.opening_balance) || 0;
             const depAmt = customDepAmounts[ledgerId] || (opBal * rate) / 100;
 
@@ -313,15 +313,19 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
   // Compute Totals
   const totals = useMemo(() => {
     return rowsData.reduce(
-      (acc, row) => ({
-        openingBalance: acc.openingBalance + row.openingBalance,
-        additionBefore: acc.additionBefore + row.additionBefore,
-        additionAfter: acc.additionAfter + row.additionAfter,
-        salesBefore: acc.salesBefore + row.salesBefore,
-        salesAfter: acc.salesAfter + row.salesAfter,
-        depreciationAmount: acc.depreciationAmount + row.depreciationAmount,
-        netBlock: acc.netBlock + row.netBlock,
-      }),
+      (acc, row) => {
+        const calcDep = Math.max(0, row.depreciationAmount - (row.voucherDepreciation || 0));
+        return {
+          openingBalance: acc.openingBalance + row.openingBalance,
+          additionBefore: acc.additionBefore + row.additionBefore,
+          additionAfter: acc.additionAfter + row.additionAfter,
+          salesBefore: acc.salesBefore + row.salesBefore,
+          salesAfter: acc.salesAfter + row.salesAfter,
+          depreciationAmount: acc.depreciationAmount + row.depreciationAmount,
+          calculatedDep: acc.calculatedDep + calcDep,
+          netBlock: acc.netBlock + row.netBlock,
+        };
+      },
       {
         openingBalance: 0,
         additionBefore: 0,
@@ -329,6 +333,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
         salesBefore: 0,
         salesAfter: 0,
         depreciationAmount: 0,
+        calculatedDep: 0,
         netBlock: 0,
       }
     );
@@ -345,22 +350,27 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
       `SALES BEFORE ${finYearDates.cutoffDateStr}`,
       `SALES AFTER ${finYearDates.cutoffDateStr}`,
       "RATE OF DEPRECIATION (%)",
+      "As & PL Account",
       "AMOUNT OF DEP.",
       `NET BLOCK AS ON ${finYearDates.endDateStr}`,
     ];
 
-    const rows = rowsData.map((r) => [
-      r.srNo,
-      `"${r.name.replace(/"/g, '""')}"`,
-      r.openingBalance.toFixed(2),
-      r.additionBefore.toFixed(2),
-      r.additionAfter.toFixed(2),
-      r.salesBefore.toFixed(2),
-      r.salesAfter.toFixed(2),
-      `${r.depreciationRate}%`,
-      r.depreciationAmount.toFixed(2),
-      r.netBlock.toFixed(2),
-    ]);
+    const rows = rowsData.map((r) => {
+      const calcDep = Math.max(0, r.depreciationAmount - (r.voucherDepreciation || 0));
+      return [
+        r.srNo,
+        `"${r.name.replace(/"/g, '""')}"`,
+        r.openingBalance.toFixed(2),
+        r.additionBefore.toFixed(2),
+        r.additionAfter.toFixed(2),
+        r.salesBefore.toFixed(2),
+        r.salesAfter.toFixed(2),
+        `${r.depreciationRate}%`,
+        calcDep.toFixed(2),
+        r.depreciationAmount.toFixed(2),
+        r.netBlock.toFixed(2),
+      ];
+    });
 
     const totalRow = [
       "",
@@ -371,6 +381,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
       totals.salesBefore.toFixed(2),
       totals.salesAfter.toFixed(2),
       "",
+      totals.calculatedDep.toFixed(2),
       totals.depreciationAmount.toFixed(2),
       totals.netBlock.toFixed(2),
     ];
@@ -498,6 +509,9 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
                     RATE OF DEPRECIATION
                   </th>
                   <th rowSpan={2} className="border border-gray-400 dark:border-gray-600 p-2 min-w-[110px]">
+                    As & PL Account
+                  </th>
+                  <th rowSpan={2} className="border border-gray-400 dark:border-gray-600 p-2 min-w-[110px]">
                     AMOUNT OF DEP.
                   </th>
                   <th rowSpan={2} className="border border-gray-400 dark:border-gray-600 p-2 min-w-[130px]">
@@ -525,102 +539,104 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
               <tbody>
                 {rowsData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-6 text-center text-gray-500 italic border border-gray-400 dark:border-gray-600">
+                    <td colSpan={11} className="p-6 text-center text-gray-500 italic border border-gray-400 dark:border-gray-600">
                       No Fixed Assets ledgers found for this company.
                     </td>
                   </tr>
                 ) : (
-                  rowsData.map((row) => (
-                    <tr
-                      key={row.ledgerId}
-                      className={`hover:bg-blue-50/50 dark:hover:bg-gray-700/50 ${
-                        isDark ? "border-gray-700" : "border-gray-300"
-                      }`}
-                    >
-                      {/* SR NO */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-center font-mono">
-                        {row.srNo}
-                      </td>
+                  rowsData.map((row) => {
+                    const calcVal = Math.max(0, row.depreciationAmount - (row.voucherDepreciation || 0));
+                    return (
+                      <tr
+                        key={row.ledgerId}
+                        className={`hover:bg-blue-50/50 dark:hover:bg-gray-700/50 ${
+                          isDark ? "border-gray-700" : "border-gray-300"
+                        }`}
+                      >
+                        {/* SR NO */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-center font-mono">
+                          {row.srNo}
+                        </td>
 
-                      {/* NAME OF ASSETS */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 font-semibold tracking-wide uppercase">
-                        {row.name}
-                      </td>
+                        {/* NAME OF ASSETS */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 font-semibold tracking-wide uppercase">
+                          {row.name}
+                        </td>
 
-                      {/* BALANCE AS ON START */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
-                        {row.openingBalance !== 0 ? formatINR(row.openingBalance) : "-"}
-                      </td>
+                        {/* BALANCE AS ON START */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {row.openingBalance !== 0 ? formatINR(row.openingBalance) : "-"}
+                        </td>
 
-                      {/* ADDITION BEFORE CUTOFF */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
-                        {row.additionBefore !== 0 ? formatINR(row.additionBefore) : "-"}
-                      </td>
+                        {/* ADDITION BEFORE CUTOFF */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {row.additionBefore !== 0 ? formatINR(row.additionBefore) : "-"}
+                        </td>
 
-                      {/* ADDITION AFTER CUTOFF */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
-                        {row.additionAfter !== 0 ? formatINR(row.additionAfter) : "-"}
-                      </td>
+                        {/* ADDITION AFTER CUTOFF */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {row.additionAfter !== 0 ? formatINR(row.additionAfter) : "-"}
+                        </td>
 
-                      {/* SALES BEFORE CUTOFF */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
-                        {row.salesBefore !== 0 ? formatINR(row.salesBefore) : "-"}
-                      </td>
+                        {/* SALES BEFORE CUTOFF */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {row.salesBefore !== 0 ? formatINR(row.salesBefore) : "-"}
+                        </td>
 
-                      {/* SALES AFTER CUTOFF */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
-                        {row.salesAfter !== 0 ? formatINR(row.salesAfter) : "-"}
-                      </td>
+                        {/* SALES AFTER CUTOFF */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {row.salesAfter !== 0 ? formatINR(row.salesAfter) : "-"}
+                        </td>
 
-                      {/* RATE OF DEPRECIATION */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-1 text-center font-mono">
-                        <div className="flex items-center justify-center">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            value={row.depreciationRate === 0 ? "" : row.depreciationRate}
-                            placeholder="0.00"
-                            onChange={(e) => handleRateChange(row.ledgerId, parseFloat(e.target.value) || 0)}
-                            className={`w-16 text-center p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
-                              isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                            }`}
-                          />
-                          <span className="ml-0.5 print:inline">%</span>
-                        </div>
-                      </td>
+                        {/* RATE OF DEPRECIATION */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-1 text-center font-mono">
+                          <div className="flex items-center justify-center">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={row.depreciationRate === 0 ? "" : row.depreciationRate}
+                              placeholder="0.00"
+                              onChange={(e) => handleRateChange(row.ledgerId, parseFloat(e.target.value) || 0)}
+                              className={`w-16 text-center p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
+                                isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
+                              }`}
+                            />
+                            <span className="ml-0.5 print:inline">%</span>
+                          </div>
+                        </td>
 
-                      {/* AMOUNT OF DEP. */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-1 text-right font-mono">
-                        <div className="flex flex-col items-end">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={row.depreciationAmount === 0 ? "" : row.depreciationAmount.toFixed(2)}
-                            placeholder="0.00"
-                            onChange={(e) => handleDepAmountChange(row.ledgerId, parseFloat(e.target.value) || 0)}
-                            className={`w-20 text-right p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
-                              isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                            }`}
-                          />
-                          {row.voucherDepreciation > 0 && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 print:hidden font-sans">
-                              Voucher: ₹{row.voucherDepreciation.toFixed(2)}
-                              {row.depreciationRate > 0 && ` + Calc: ₹${(row.depreciationAmount - row.voucherDepreciation).toFixed(2)}`}
-                            </span>
-                          )}
-                          <span className="hidden print:inline">{formatINR(row.depreciationAmount)}</span>
-                        </div>
-                      </td>
+                        {/* AS & PL ACCOUNT (CALC VALUE) */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                          {formatINR(calcVal)}
+                        </td>
 
-                      {/* NET BLOCK AS ON END */}
-                      <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono font-semibold">
-                        {formatINR(row.netBlock)}
-                      </td>
-                    </tr>
-                  ))
+                        {/* AMOUNT OF DEP. */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-1 text-right font-mono">
+                          <div className="flex flex-col items-end">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={row.depreciationAmount === 0 ? "" : row.depreciationAmount.toFixed(2)}
+                              placeholder="0.00"
+                              onChange={(e) => handleDepAmountChange(row.ledgerId, parseFloat(e.target.value) || 0)}
+                              className={`w-20 text-right p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
+                                isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
+                              }`}
+                            />
+                            <span className="hidden print:inline">{formatINR(row.depreciationAmount)}</span>
+                          </div>
+                        </td>
+
+                        {/* NET BLOCK AS ON END */}
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono font-semibold">
+                          {formatINR(row.netBlock)}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
 
@@ -647,6 +663,9 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
                   </td>
                   <td className="border border-gray-400 dark:border-gray-600 p-2 text-center">
                     —
+                  </td>
+                  <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
+                    {formatINR(totals.calculatedDep)}
                   </td>
                   <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
                     {formatINR(totals.depreciationAmount)}
