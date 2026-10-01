@@ -97,6 +97,7 @@ export type Ledger = {
   phone?: string;
   gstNumber?: string;
   panNumber?: string;
+  tanNumber?: string;
   type?: LedgerType;
   state?: string;
   district?: string;

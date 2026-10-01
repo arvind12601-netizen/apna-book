@@ -93,6 +93,7 @@ router.get("/", async (req, res) => {
         l.phone,
         l.gst_number AS gstNumber,
         l.pan_number AS panNumber,
+        l.tan_number AS tanNumber,
         l.state,
         l.district,
         l.pin_code AS pinCode,
@@ -133,6 +134,7 @@ router.post("/", async (req, res) => {
     phone,
     gstNumber,
     panNumber,
+    tanNumber,
     state,
     district,
     pinCode,
@@ -230,8 +232,8 @@ router.post("/", async (req, res) => {
 
     const sql = `
     INSERT INTO ledgers 
-    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, state, district, pin_code, company_id, owner_type, owner_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, state, district, pin_code, company_id, owner_type, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
     const [result] = await db.execute(sql, [
@@ -245,6 +247,7 @@ router.post("/", async (req, res) => {
       phone || "",
       gstNumber || "",
       panNumber || "",
+      tanNumber || req.body.tan_number || "",
       state || "",
       district || "",
       pinCode || "",
@@ -264,6 +267,7 @@ router.post("/", async (req, res) => {
         address,
         pinCode,
         panNumber,
+        tanNumber: tanNumber || req.body.tan_number || "",
         balanceType: balanceType || "debit"
       }
     });
@@ -383,8 +387,8 @@ router.post("/bulk", async (req, res) => {
 
     const sql = `
       INSERT INTO ledgers 
-      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, state, district, pin_code, company_id, owner_type, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, state, district, pin_code, company_id, owner_type, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const results = [];
@@ -400,6 +404,7 @@ router.post("/bulk", async (req, res) => {
         phone,
         gstNumber,
         panNumber,
+        tanNumber,
         state,
         district,
         pinCode,
@@ -422,6 +427,7 @@ router.post("/bulk", async (req, res) => {
         phone || "",
         gstNumber || "",
         panNumber || "",
+        tanNumber || ledger.tan_number || "",
         state || "",
         district || "",
         pinCode || "",
@@ -502,6 +508,7 @@ router.get("/:id", async (req, res) => {
       phone: ledger.phone,
       gstNumber: ledger.gst_number,
       panNumber: ledger.pan_number,
+      tanNumber: ledger.tan_number || "",
       state: ledger.state || "",
       district: ledger.district || "",
       pinCode: ledger.pin_code || "",
@@ -529,6 +536,7 @@ router.put("/:id", async (req, res) => {
     phone,
     gstNumber,
     panNumber,
+    tanNumber,
     state,
     district,
     pinCode,
@@ -618,6 +626,7 @@ router.put("/:id", async (req, res) => {
           phone = ?, 
           gst_number = ?, 
           pan_number = ?,
+          tan_number = ?,
           state = ?,
           district = ?,
           pin_code = ?,
@@ -638,6 +647,7 @@ router.put("/:id", async (req, res) => {
       phone || "",
       gstNumber || "",
       panNumber || "",
+      tanNumber || req.body.tan_number || "",
       state || "",
       district || "",
       pinCode || "",

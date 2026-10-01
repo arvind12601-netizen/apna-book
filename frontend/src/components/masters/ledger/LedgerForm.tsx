@@ -36,6 +36,7 @@ const LedgerForm: React.FC = () => {
     phone: "",
     gstNumber: "",
     panNumber: "",
+    tanNumber: "",
     state: "",
     district: "",
     pinCode: "",
@@ -124,7 +125,8 @@ const LedgerForm: React.FC = () => {
             email: data.email || "",
             phone: data.phone || "",
             gstNumber: data.gst_number || "",
-            panNumber: data.pan_number || "",
+            panNumber: data.panNumber || data.pan_number || "",
+            tanNumber: data.tanNumber || data.tan_number || "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -170,8 +172,9 @@ const LedgerForm: React.FC = () => {
             address: data.address || "",
             email: data.email || "",
             phone: data.phone || "",
-            gstNumber: data.gstNumber || "",
-            panNumber: data.panNumber || "",
+            gstNumber: data.gstNumber || data.gst_number || "",
+            panNumber: data.panNumber || data.pan_number || "",
+            tanNumber: data.tanNumber || data.tan_number || "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -578,7 +581,7 @@ const LedgerForm: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div>
                 <label
                   className="block text-sm font-medium mb-1"
@@ -627,6 +630,28 @@ const LedgerForm: React.FC = () => {
                   name="panNumber"
                   value={formData.panNumber}
                   onChange={handleChange}
+                  placeholder="e.g. ABCDE1234F"
+                  className={`w-full p-2 rounded border ${theme === "dark"
+                    ? "bg-gray-700 border-gray-600 focus:border-blue-500"
+                    : "bg-white border-gray-300 focus:border-blue-500"
+                    } outline-none transition-colors`}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1"
+                  htmlFor="tanNumber"
+                >
+                  TAN Number
+                </label>
+                <input
+                  type="text"
+                  id="tanNumber"
+                  name="tanNumber"
+                  value={formData.tanNumber}
+                  onChange={handleChange}
+                  placeholder="e.g. ABCD12345E"
                   className={`w-full p-2 rounded border ${theme === "dark"
                     ? "bg-gray-700 border-gray-600 focus:border-blue-500"
                     : "bg-white border-gray-300 focus:border-blue-500"
