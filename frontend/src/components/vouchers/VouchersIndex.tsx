@@ -17,6 +17,12 @@ import {
   ImportIcon,
   Lock,
   FileSpreadsheet,
+  ShieldCheck,
+  AlertTriangle,
+  BarChart2,
+  PieChart,
+  BookOpen,
+  Clock,
 } from "lucide-react";
 
 interface VoucherType {
@@ -28,6 +34,7 @@ interface VoucherType {
   iconBg: string;
   description: string;
   category: "accounting" | "trading" | "inventory" | "import";
+  isPendingItem?: boolean;
 }
 
 interface VoucherSection {
@@ -35,6 +42,7 @@ interface VoucherSection {
   description: string;
   icon: React.ReactNode;
   vouchers: VoucherType[];
+  isPendingSection?: boolean;
 }
 
 const VouchersIndex: React.FC = () => {
@@ -376,6 +384,112 @@ const VouchersIndex: React.FC = () => {
         },
       ],
     },
+    {
+      title: "Report Data Imports (Pending Features)",
+      description: "Perform data import / creation for pending report items",
+      icon: <Clock size={20} className="text-red-600 dark:text-red-400" />,
+      isPendingSection: true,
+      vouchers: [
+        {
+          id: "receipt-payment-account-import",
+          icon: <FileText size={20} className="text-red-600 dark:text-red-400" />,
+          name: "Receipt & Payment Account",
+          path: "/app/vouchers/import/receipt-payment-account",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import data for Receipt & Payment Account",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "26as-import",
+          icon: <ShieldCheck size={20} className="text-red-600 dark:text-red-400" />,
+          name: "26Ab Report",
+          path: "/app/vouchers/import/26as",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import 26AS/26Ab TDS statement data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "tax-status-import",
+          icon: <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />,
+          name: "Tax Status",
+          path: "/app/vouchers/import/tax-status",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import Tax compliance status data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr1-vs-gstr3b-import",
+          icon: <BarChart2 size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR1 vs GSTR3B",
+          path: "/app/vouchers/import/gstr1-vs-gstr3b",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR1 vs GSTR3B comparison data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr2a-vs-gstr2b-import",
+          icon: <PieChart size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR2A vs GSTR2B",
+          path: "/app/vouchers/import/gstr2a-vs-gstr2b",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR2A vs GSTR2B matching data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "books-vs-2a-import",
+          icon: <BookOpen size={20} className="text-red-600 dark:text-red-400" />,
+          name: "Books vs 2A",
+          path: "/app/vouchers/import/books-vs-2a",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import Books vs GSTR-2A comparison data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "books-vs-gstr1-import",
+          icon: <FileText size={20} className="text-red-600 dark:text-red-400" />,
+          name: "Books vs GSTR1",
+          path: "/app/vouchers/import/books-vs-gstr1",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import Books vs GSTR-1 comparison data",
+          category: "import",
+          isPendingItem: true,
+        },
+      ],
+    },
   ];
 
   return (
@@ -449,6 +563,11 @@ const VouchersIndex: React.FC = () => {
                     {!isAllowed && (
                       <div className="absolute top-2 right-2 text-red-500 bg-white/80 rounded-full p-1 shadow-sm">
                         <Lock size={12} />
+                      </div>
+                    )}
+                    {voucher.isPendingItem && (
+                      <div className="absolute top-2 right-2 text-[10px] font-bold text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-800 px-1.5 py-0.5 rounded flex items-center gap-1 shadow-xs">
+                        <Clock size={10} /> Pending
                       </div>
                     )}
                     <div

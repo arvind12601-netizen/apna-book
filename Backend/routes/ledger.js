@@ -93,6 +93,8 @@ router.get("/", async (req, res) => {
         l.phone,
         l.gst_number AS gstNumber,
         l.pan_number AS panNumber,
+        l.tan_number AS tanNumber,
+        l.depreciation_rate AS depreciationRate,
         l.state,
         l.district,
         l.pin_code AS pinCode,
@@ -133,6 +135,8 @@ router.post("/", async (req, res) => {
     phone,
     gstNumber,
     panNumber,
+    tanNumber,
+    depreciationRate,
     state,
     district,
     pinCode,
@@ -228,10 +232,26 @@ router.post("/", async (req, res) => {
     const finalClosingBalance =
       closingBalance !== undefined ? closingBalance : openingBalance || 0;
 
+    let isFixedAssetsGroup = false;
+    if (String(groupId) === "-9") {
+      isFixedAssetsGroup = true;
+    } else if (groupId) {
+      const [grpRows] = await db.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+      if (grpRows.length > 0) {
+        const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+        if (grpName === "fixedassets") isFixedAssetsGroup = true;
+      }
+    }
+
+    const rawDepRate = depreciationRate ?? req.body.depreciation_rate;
+    const finalDepreciationRate = (isFixedAssetsGroup && rawDepRate !== undefined && rawDepRate !== null && rawDepRate !== "")
+      ? parseFloat(rawDepRate)
+      : null;
+
     const sql = `
     INSERT INTO ledgers 
-    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, state, district, pin_code, company_id, owner_type, owner_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
     const [result] = await db.execute(sql, [
@@ -245,6 +265,8 @@ router.post("/", async (req, res) => {
       phone || "",
       gstNumber || "",
       panNumber || "",
+      tanNumber || req.body.tan_number || "",
+      finalDepreciationRate,
       state || "",
       district || "",
       pinCode || "",
@@ -264,6 +286,8 @@ router.post("/", async (req, res) => {
         address,
         pinCode,
         panNumber,
+        tanNumber: tanNumber || req.body.tan_number || "",
+        depreciationRate: finalDepreciationRate,
         balanceType: balanceType || "debit"
       }
     });
@@ -383,8 +407,8 @@ router.post("/bulk", async (req, res) => {
 
     const sql = `
       INSERT INTO ledgers 
-      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, state, district, pin_code, company_id, owner_type, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const results = [];
@@ -400,6 +424,8 @@ router.post("/bulk", async (req, res) => {
         phone,
         gstNumber,
         panNumber,
+        tanNumber,
+        depreciationRate,
         state,
         district,
         pinCode,
@@ -412,6 +438,22 @@ router.post("/bulk", async (req, res) => {
         );
       }
 
+      let isFixedAssetsGroup = false;
+      if (String(groupId) === "-9") {
+        isFixedAssetsGroup = true;
+      } else if (groupId) {
+        const [grpRows] = await connection.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+        if (grpRows.length > 0) {
+          const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+          if (grpName === "fixedassets") isFixedAssetsGroup = true;
+        }
+      }
+
+      const itemDepRate = depreciationRate ?? ledger.depreciation_rate;
+      const finalDepreciationRate = (isFixedAssetsGroup && itemDepRate !== undefined && itemDepRate !== null && itemDepRate !== "")
+        ? parseFloat(itemDepRate)
+        : null;
+
       await connection.execute(sql, [
         name,
         groupId,
@@ -422,6 +464,8 @@ router.post("/bulk", async (req, res) => {
         phone || "",
         gstNumber || "",
         panNumber || "",
+        tanNumber || ledger.tan_number || "",
+        finalDepreciationRate,
         state || "",
         district || "",
         pinCode || "",
@@ -502,6 +546,8 @@ router.get("/:id", async (req, res) => {
       phone: ledger.phone,
       gstNumber: ledger.gst_number,
       panNumber: ledger.pan_number,
+      tanNumber: ledger.tan_number || "",
+      depreciationRate: ledger.depreciation_rate !== null && ledger.depreciation_rate !== undefined ? parseFloat(ledger.depreciation_rate) : null,
       state: ledger.state || "",
       district: ledger.district || "",
       pinCode: ledger.pin_code || "",
@@ -529,6 +575,8 @@ router.put("/:id", async (req, res) => {
     phone,
     gstNumber,
     panNumber,
+    tanNumber,
+    depreciationRate,
     state,
     district,
     pinCode,
@@ -607,6 +655,22 @@ router.put("/:id", async (req, res) => {
     `);
     }
 
+    let isFixedAssetsGroup = false;
+    if (String(groupId) === "-9") {
+      isFixedAssetsGroup = true;
+    } else if (groupId) {
+      const [grpRows] = await db.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+      if (grpRows.length > 0) {
+        const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+        if (grpName === "fixedassets") isFixedAssetsGroup = true;
+      }
+    }
+
+    const rawDepRate = depreciationRate ?? req.body.depreciation_rate;
+    const finalDepreciationRate = (isFixedAssetsGroup && rawDepRate !== undefined && rawDepRate !== null && rawDepRate !== "")
+      ? parseFloat(rawDepRate)
+      : null;
+
     const sql = `
       UPDATE ledgers
       SET name = ?, 
@@ -618,6 +682,8 @@ router.put("/:id", async (req, res) => {
           phone = ?, 
           gst_number = ?, 
           pan_number = ?,
+          tan_number = ?,
+          depreciation_rate = ?,
           state = ?,
           district = ?,
           pin_code = ?,
@@ -638,6 +704,8 @@ router.put("/:id", async (req, res) => {
       phone || "",
       gstNumber || "",
       panNumber || "",
+      tanNumber || req.body.tan_number || "",
+      finalDepreciationRate,
       state || "",
       district || "",
       pinCode || "",

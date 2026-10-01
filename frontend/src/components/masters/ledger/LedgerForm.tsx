@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAppContext } from "../../../context/AppContext";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Ledger } from "../../../types";
@@ -36,10 +36,27 @@ const LedgerForm: React.FC = () => {
     phone: "",
     gstNumber: "",
     panNumber: "",
+    tanNumber: "",
+    depreciationRate: "",
     state: "",
     district: "",
     pinCode: "",
   });
+
+  const isFixedAssets = useMemo(() => {
+    if (!formData.groupId) return false;
+    const findGroup =
+      ledgerGroups.find((g) => g.id.toString() === formData.groupId.toString()) ||
+      baseGroups.find((g) => g.id.toString() === formData.groupId.toString());
+    if (findGroup) {
+      const normName = findGroup.name.toLowerCase().replace(/[\s-]/g, "");
+      return findGroup.id.toString() === "-9" || normName === "fixedassets";
+    }
+    if (chekStock) {
+      return chekStock.toLowerCase().replace(/[\s-]/g, "") === "fixedassets";
+    }
+    return false;
+  }, [formData.groupId, ledgerGroups, chekStock]);
 
 
   //by default 
@@ -124,7 +141,9 @@ const LedgerForm: React.FC = () => {
             email: data.email || "",
             phone: data.phone || "",
             gstNumber: data.gst_number || "",
-            panNumber: data.pan_number || "",
+            panNumber: data.panNumber || data.pan_number || "",
+            tanNumber: data.tanNumber || data.tan_number || "",
+            depreciationRate: data.depreciationRate ?? data.depreciation_rate ?? "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -170,8 +189,10 @@ const LedgerForm: React.FC = () => {
             address: data.address || "",
             email: data.email || "",
             phone: data.phone || "",
-            gstNumber: data.gstNumber || "",
-            panNumber: data.panNumber || "",
+            gstNumber: data.gstNumber || data.gst_number || "",
+            panNumber: data.panNumber || data.pan_number || "",
+            tanNumber: data.tanNumber || data.tan_number || "",
+            depreciationRate: data.depreciationRate ?? data.depreciation_rate ?? "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -198,9 +219,45 @@ const LedgerForm: React.FC = () => {
   ) => {
     const { name, value, type } = e.target;
 
-    let processedValue = value;
+    let processedValue: any = value;
     if (name === "gstNumber") {
       processedValue = value.toUpperCase();
+    }
+
+    if (name === "groupId") {
+      const findGroup =
+        ledgerGroups.find((g) => g.id.toString() === value) ||
+        baseGroups.find((g) => g.id.toString() === value);
+
+      const isFA = findGroup && (
+        findGroup.id.toString() === "-9" ||
+        findGroup.name.trim().toLowerCase() === "fixed assets" ||
+        findGroup.name.toLowerCase().replace(/[\s-]/g, "") === "fixedassets"
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        groupId: value,
+        depreciationRate: isFA ? prev.depreciationRate : "",
+      }));
+
+      if (findGroup) {
+        setChekStock(findGroup.name);
+      }
+      if (errors.groupId) setErrors((prev) => ({ ...prev, groupId: "" }));
+      if (errors.depreciationRate) setErrors((prev) => ({ ...prev, depreciationRate: "" }));
+      return;
+    }
+
+    if (name === "depreciationRate") {
+      setFormData((prev) => ({
+        ...prev,
+        depreciationRate: value,
+      }));
+      if (errors.depreciationRate) {
+        setErrors((prev) => ({ ...prev, depreciationRate: "" }));
+      }
+      return;
     }
 
     setFormData((prev) => ({
@@ -210,15 +267,6 @@ const LedgerForm: React.FC = () => {
 
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-
-    if (name === "groupId") {
-      const findGroup =
-        ledgerGroups.find((g) => g.id.toString() === value) ||
-        baseGroups.find((g) => g.id.toString() === value);
-      if (findGroup) {
-        setChekStock(findGroup.name);
-      }
     }
   };
 
@@ -254,6 +302,14 @@ const LedgerForm: React.FC = () => {
     if (formData.gstNumber && !validateGSTIN(formData.gstNumber)) {
       newErrors.gstNumber = "Invalid GSTIN/UIN format";
     }
+
+    if (isFixedAssets && formData.depreciationRate !== "" && formData.depreciationRate !== null && formData.depreciationRate !== undefined) {
+      const rate = Number(formData.depreciationRate);
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        newErrors.depreciationRate = "DEPRECIATION Rate must be between 0 and 100";
+      }
+    }
+
     if (errors.name) newErrors.name = errors.name;
     if (errors.gstNumber) newErrors.gstNumber = errors.gstNumber;
     
@@ -264,7 +320,13 @@ const LedgerForm: React.FC = () => {
   // Create ledger
   const createLedger = async () => {
     try {
-      const payload = { ...formData, companyId, ownerType, ownerId };
+      const payload = {
+        ...formData,
+        depreciationRate: isFixedAssets && formData.depreciationRate !== "" && formData.depreciationRate !== null ? Number(formData.depreciationRate) : null,
+        companyId,
+        ownerType,
+        ownerId,
+      };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ledger`, {
         method: "POST",
@@ -293,7 +355,13 @@ const LedgerForm: React.FC = () => {
   // Update ledger
   const updateLedger = async () => {
     try {
-      const payload = { ...formData, companyId, ownerType, ownerId };
+      const payload = {
+        ...formData,
+        depreciationRate: isFixedAssets && formData.depreciationRate !== "" && formData.depreciationRate !== null ? Number(formData.depreciationRate) : null,
+        companyId,
+        ownerType,
+        ownerId,
+      };
 
       const res = await fetch(
         `${import.meta.env.VITE_API_URL
@@ -505,6 +573,39 @@ const LedgerForm: React.FC = () => {
               </div>
             )}
 
+            {isFixedAssets && (
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1"
+                  htmlFor="depreciationRate"
+                >
+                  DEPRECIATION Rate (%)
+                </label>
+                <input
+                  type="number"
+                  id="depreciationRate"
+                  name="depreciationRate"
+                  value={formData.depreciationRate ?? ""}
+                  onChange={handleChange}
+                  step="any"
+                  min="0"
+                  max="100"
+                  placeholder="e.g. 10 or 12.5"
+                  className={`w-full p-2 rounded border ${errors.depreciationRate
+                    ? "border-red-500 focus:border-red-500"
+                    : theme === "dark"
+                      ? "bg-gray-700 border-gray-600 focus:border-blue-500"
+                      : "bg-white border-gray-300 focus:border-blue-500"
+                    } outline-none transition-colors`}
+                />
+                {errors.depreciationRate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.depreciationRate}
+                  </p>
+                )}
+              </div>
+            )}
+
           </div>
 
           {/* Additional Info */}
@@ -578,7 +679,7 @@ const LedgerForm: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div>
                 <label
                   className="block text-sm font-medium mb-1"
@@ -627,6 +728,28 @@ const LedgerForm: React.FC = () => {
                   name="panNumber"
                   value={formData.panNumber}
                   onChange={handleChange}
+                  placeholder="e.g. ABCDE1234F"
+                  className={`w-full p-2 rounded border ${theme === "dark"
+                    ? "bg-gray-700 border-gray-600 focus:border-blue-500"
+                    : "bg-white border-gray-300 focus:border-blue-500"
+                    } outline-none transition-colors`}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1"
+                  htmlFor="tanNumber"
+                >
+                  TAN Number
+                </label>
+                <input
+                  type="text"
+                  id="tanNumber"
+                  name="tanNumber"
+                  value={formData.tanNumber}
+                  onChange={handleChange}
+                  placeholder="e.g. ABCD12345E"
                   className={`w-full p-2 rounded border ${theme === "dark"
                     ? "bg-gray-700 border-gray-600 focus:border-blue-500"
                     : "bg-white border-gray-300 focus:border-blue-500"
