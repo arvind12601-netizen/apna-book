@@ -62,6 +62,7 @@ import VoucherImport from "./components/vouchers/import/VoucherImport";
 import BankStatementImport from "./components/vouchers/import/BankStatementImport";
 import PurchaseImport from "./components/vouchers/import/PurchaseImport";
 import SalesImport from "./components/vouchers/import/SalesImport";
+import SingleReportImportPage from "./components/vouchers/import/SingleReportImportPage";
 import QuotationList from "./components/vouchers/quotation/QuotationList";
 import QuotationCreate from "./components/vouchers/quotation/QuotationCreate";
 
@@ -128,6 +129,10 @@ import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
 import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
 import Form26ASReport from "./components/reports/Form26ASReport";
 import TaxStatusReport from "./components/reports/TaxStatusReport";
+import Gstr1VsGstr3bReport from "./components/reports/Gstr1VsGstr3bReport";
+import Gstr2aVsGstr2bReport from "./components/reports/Gstr2aVsGstr2bReport";
+import BooksVs2aReport from "./components/reports/BooksVs2aReport";
+import BooksVsGstr1Report from "./components/reports/BooksVsGstr1Report";
 import ReportComingSoon from "./components/reports/ReportComingSoon";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
@@ -1014,6 +1019,71 @@ function App() {
                     </RequireCompany>
                   }
                 />
+                {/* Dedicated Report Data Import Routes */}
+                <Route
+                  path="vouchers/import/receipt-payment-account"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="receipt-payment-account" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/26as"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="26as" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/tax-status"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="tax-status" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/gstr1-vs-gstr3b"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="gstr1-vs-gstr3b" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/gstr2a-vs-gstr2b"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="gstr2a-vs-gstr2b" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/books-vs-2a"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="books-vs-2a" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import/books-vs-gstr1"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage reportType="books-vs-gstr1" />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="vouchers/import-report/:reportType"
+                  element={
+                    <RequireCompany>
+                      <SingleReportImportPage />
+                    </RequireCompany>
+                  }
+                />
                 {/* Voucher Register Routes */}
                 <Route
                   path="voucher-register"
@@ -1793,7 +1863,7 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="GSTR-1 vs GSTR-3B" category="Sales Reports" />
+                        <Gstr1VsGstr3bReport />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -1803,7 +1873,7 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="GSTR-2A vs GSTR-2B Matching" category="Sales Reports" />
+                        <Gstr2aVsGstr2bReport />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -1813,7 +1883,7 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Books vs 2A" category="Purchase Reports" />
+                        <BooksVs2aReport />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -1823,7 +1893,7 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Books vs Gstr1" category="Purchase Reports" />
+                        <BooksVsGstr1Report />
                       </RequireSubscription>
                     </RequireCompany>
                   }

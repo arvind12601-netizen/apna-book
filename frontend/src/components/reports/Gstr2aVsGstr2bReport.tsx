@@ -1,32 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { useAppContext } from "../../context/AppContext";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, ShieldCheck, Upload, CheckCircle } from "lucide-react";
+import { ArrowLeft, Clock, PieChart, Upload } from "lucide-react";
 import { getReportData, type StoredReportData } from "../../services/reportImportService";
 
-const Form26ASReport: React.FC = () => {
+const Gstr2aVsGstr2bReport: React.FC = () => {
   const { theme } = useAppContext();
   const navigate = useNavigate();
   const [reportData, setReportData] = useState<StoredReportData | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const data = getReportData("26as");
+    const data = getReportData("gstr2a-vs-gstr2b");
     setReportData(data);
   }, []);
 
   const rows = reportData?.rows || [];
 
-  const totalAmountPaid = rows.reduce(
-    (acc, r) => acc + (parseFloat(r["Total Amount Paid"] || r.totalAmountPaid || 0) || 0),
+  const total2aTax = rows.reduce(
+    (acc, r) => acc + (parseFloat(r["2A Total Tax"] || r.twoATax || 0) || 0),
     0
   );
-  const totalTdsDeducted = rows.reduce(
-    (acc, r) => acc + (parseFloat(r["TDS Deducted"] || r.tdsDeducted || 0) || 0),
-    0
-  );
-  const totalTdsDeposited = rows.reduce(
-    (acc, r) => acc + (parseFloat(r["TDS Deposited"] || r.tdsDeposited || 0) || 0),
+  const total2bTax = rows.reduce(
+    (acc, r) => acc + (parseFloat(r["2B Total Tax"] || r.twoBTax || 0) || 0),
     0
   );
 
@@ -56,17 +52,17 @@ const Form26ASReport: React.FC = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ShieldCheck className="text-red-600 dark:text-red-400" size={28} />
-              26Ab Report (Form 26AS Tax Credit)
+              <PieChart className="text-red-600 dark:text-red-400" size={28} />
+              GSTR2A vs GSTR2B Matching Report
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Tax Credit Statement • Generated from Import Vouchers
+              Input Tax Credit (ITC) Reconciliation • Generated from Import Vouchers
             </p>
           </div>
         </div>
 
         <button
-          onClick={() => navigate("/app/vouchers/import?type=26as")}
+          onClick={() => navigate("/app/vouchers/import?type=gstr2a-vs-gstr2b")}
           className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
         >
           <Upload size={16} />
@@ -85,16 +81,16 @@ const Form26ASReport: React.FC = () => {
               <Clock size={48} className="text-red-600 dark:text-red-400 animate-pulse" />
             </div>
             <h2 className="text-2xl font-bold mb-2 text-center text-gray-900 dark:text-white">
-              26Ab (Form 26AS) Report
+              GSTR2A vs GSTR2B Matching
             </h2>
             <div className="px-3 py-1 bg-red-500/10 text-red-600 dark:text-red-400 font-bold text-xs rounded-full uppercase tracking-wider mb-4 border border-red-200 dark:border-red-900">
               Pending Data Import
             </div>
             <p className="text-gray-600 dark:text-gray-300 text-center text-sm leading-relaxed mb-6">
-              No TDS statement data has been imported for 26Ab yet. Please navigate to <strong>Import Vouchers</strong> to upload your Form 26AS Excel/CSV statement.
+              No GSTR-2A vs GSTR-2B matching data has been imported yet. Please navigate to <strong>Import Vouchers</strong> to import your GSTR-2A and 2B ITC statement data.
             </p>
             <button
-              onClick={() => navigate("/app/vouchers/import?type=26as")}
+              onClick={() => navigate("/app/vouchers/import?type=gstr2a-vs-gstr2b")}
               className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-md flex items-center gap-2"
             >
               <Upload size={18} />
@@ -104,31 +100,31 @@ const Form26ASReport: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Metrics */}
+          {/* Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="text-xs font-semibold text-gray-500 uppercase">Total Amount Paid/Credited</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{totalAmountPaid.toLocaleString("en-IN")}</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase">Total ITC in 2A</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">₹{total2aTax.toLocaleString("en-IN")}</div>
             </div>
             <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="text-xs font-semibold text-gray-500 uppercase">Total TDS Deducted</div>
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">₹{totalTdsDeducted.toLocaleString("en-IN")}</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase">Eligible ITC in 2B</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">₹{total2bTax.toLocaleString("en-IN")}</div>
             </div>
             <div className={`p-4 rounded-xl border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200 shadow-sm"}`}>
-              <div className="text-xs font-semibold text-gray-500 uppercase">Total TDS Deposited</div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">₹{totalTdsDeposited.toLocaleString("en-IN")}</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase">Matched Invoices</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{rows.length}</div>
             </div>
           </div>
 
           <div className="flex justify-between items-center">
             <input
               type="text"
-              placeholder="Search deductor, TAN, section..."
+              placeholder="Search supplier, GSTIN, invoice no..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-3.5 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            <span className="text-xs text-gray-500">Total Entries: {filteredRows.length}</span>
+            <span className="text-xs text-gray-500">Total Invoices: {filteredRows.length}</span>
           </div>
 
           {/* Table */}
@@ -137,33 +133,45 @@ const Form26ASReport: React.FC = () => {
               <table className="w-full text-xs text-left">
                 <thead className="bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-b">
                   <tr>
-                    <th className="px-3 py-2.5">Deductor TAN</th>
-                    <th className="px-3 py-2.5">Deductor Name</th>
-                    <th className="px-3 py-2.5">Section</th>
-                    <th className="px-3 py-2.5">Transaction Date</th>
-                    <th className="px-3 py-2.5 text-right">Amount Paid</th>
-                    <th className="px-3 py-2.5 text-right">TDS Deducted</th>
-                    <th className="px-3 py-2.5 text-right">TDS Deposited</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
+                    <th className="px-3 py-2.5">Supplier GSTIN</th>
+                    <th className="px-3 py-2.5">Supplier Name</th>
+                    <th className="px-3 py-2.5">Invoice No</th>
+                    <th className="px-3 py-2.5">Date</th>
+                    <th className="px-3 py-2.5 text-right">2A Taxable</th>
+                    <th className="px-3 py-2.5 text-right">2B Taxable</th>
+                    <th className="px-3 py-2.5 text-right">2A Tax</th>
+                    <th className="px-3 py-2.5 text-right">2B Tax</th>
+                    <th className="px-3 py-2.5 text-center">ITC Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredRows.map((r, i) => (
-                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                      <td className="px-3 py-2.5 font-mono font-medium">{r["Deductor TAN"] || r.deductorTan || "-"}</td>
-                      <td className="px-3 py-2.5 font-semibold text-gray-900 dark:text-gray-100">{r["Deductor Name"] || r.deductorName || "-"}</td>
-                      <td className="px-3 py-2.5 font-medium">{r.Section || r.section || "-"}</td>
-                      <td className="px-3 py-2.5 text-gray-500">{r["Transaction Date"] || r.transactionDate || "-"}</td>
-                      <td className="px-3 py-2.5 text-right font-medium">₹{(parseFloat(r["Total Amount Paid"] || 0)).toLocaleString("en-IN")}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-blue-600 dark:text-blue-400">₹{(parseFloat(r["TDS Deducted"] || 0)).toLocaleString("en-IN")}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-green-600 dark:text-green-400">₹{(parseFloat(r["TDS Deposited"] || 0)).toLocaleString("en-IN")}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300">
-                          {r.Status || r.status || "Matched"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredRows.map((r, i) => {
+                    const statusStr = String(r["ITC Status"] || r.itcStatus || "Matched").toLowerCase();
+                    const isMatched = statusStr.includes("matched");
+                    return (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <td className="px-3 py-2.5 font-mono">{r["Supplier GSTIN"] || r.supplierGstin || "-"}</td>
+                        <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-gray-100">{r["Supplier Name"] || r.supplierName || "-"}</td>
+                        <td className="px-3 py-2.5 font-medium">{r["Invoice Number"] || r.invoiceNumber || "-"}</td>
+                        <td className="px-3 py-2.5 text-gray-500">{r["Invoice Date"] || r.invoiceDate || "-"}</td>
+                        <td className="px-3 py-2.5 text-right">₹{(parseFloat(r["2A Taxable Amount"] || 0)).toLocaleString("en-IN")}</td>
+                        <td className="px-3 py-2.5 text-right">₹{(parseFloat(r["2B Taxable Amount"] || 0)).toLocaleString("en-IN")}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-blue-600 dark:text-blue-400">₹{(parseFloat(r["2A Total Tax"] || 0)).toLocaleString("en-IN")}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-green-600 dark:text-green-400">₹{(parseFloat(r["2B Total Tax"] || 0)).toLocaleString("en-IN")}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isMatched
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300"
+                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300"
+                            }`}
+                          >
+                            {r["ITC Status"] || r.itcStatus || "Matched"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -174,4 +182,4 @@ const Form26ASReport: React.FC = () => {
   );
 };
 
-export default Form26ASReport;
+export default Gstr2aVsGstr2bReport;

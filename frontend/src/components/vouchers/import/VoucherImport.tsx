@@ -13,6 +13,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import * as XLSX from "xlsx-js-style";
 import Swal from "sweetalert2";
+import ReportImportSection from "./ReportImportSection";
 
 interface ImportedVoucher {
   id: string;
@@ -577,7 +578,7 @@ const VoucherImport: React.FC = () => {
                 title="Select Voucher Type"
                 value={selectedTemplate}
                 onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
               >
                 <option value="payment">Payment Voucher</option>
                 <option value="receipt">Receipt Voucher</option>
