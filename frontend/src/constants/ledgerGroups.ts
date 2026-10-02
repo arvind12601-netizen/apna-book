@@ -43,6 +43,10 @@ export const systemSubGroups: SystemGroup[] = [
     { id: -112, name: "Cash-in-Hand", parent: -5, nature: "Assets", isSystem: true },
     { id: -113, name: "Bank Accounts", parent: -5, nature: "Assets", isSystem: true },
     { id: -114, name: "Bank OD A/c", parent: -13, nature: "Liabilities", isSystem: true },
+    { id: -115, name: "GST", parent: -103, nature: "Liabilities", isSystem: true },
+    { id: -116, name: "IGST", parent: -115, nature: "Liabilities", isSystem: true },
+    { id: -117, name: "CGST", parent: -115, nature: "Liabilities", isSystem: true },
+    { id: -118, name: "SGST", parent: -115, nature: "Liabilities", isSystem: true },
 ];
 
 export const allSystemGroups: SystemGroup[] = [...systemPrimaryGroups, ...systemSubGroups];
