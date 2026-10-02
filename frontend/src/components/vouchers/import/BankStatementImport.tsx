@@ -20,6 +20,12 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import * as pdfjsLib from "pdfjs-dist";
 import * as Tesseract from "tesseract.js";
+import {
+  extractPartyName,
+  detectTransactionType,
+  validateStatementTotals,
+  normalizeTransactionText,
+} from "../../../utils/bankStatementUtils";
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -606,13 +612,18 @@ const BankStatementImport: React.FC = () => {
         targetType = voucherCol === "journal" ? "journal" : "receipt";
       }
 
-      const particularsName = String(
-        row.Particulars ||
+      const rawParticulars = String(
+        row.name ||
+          row.Particulars ||
           row.Particular ||
           row.particulars ||
           row.particular ||
+          row.transactionDetails ||
           ""
       ).trim();
+      const extractedName = extractPartyName(rawParticulars);
+      const particularsName = extractedName || rawParticulars;
+
       const matchedParticulars = ledgers.find(
         (l) => l.name.toLowerCase() === particularsName.toLowerCase()
       );
@@ -634,6 +645,10 @@ const BankStatementImport: React.FC = () => {
       const displayParticulars = matchedParticulars
         ? matchedParticulars.name
         : particularsName;
+
+      const narrationVal = String(
+        row.Narration || row.narration || row.transactionDetails || rawParticulars
+      ).trim();
 
       return {
         Date: formatDate(row.Date || row.date),
@@ -880,15 +895,20 @@ const BankStatementImport: React.FC = () => {
       const rawTxns = data.rows.filter(
         (row: any) => Number(row.Debit || 0) > 0 || Number(row.Credit || 0) > 0
       ).map((row: any) => {
-        let narrationText = row.Particulars || "";
-        if (row.Narration && row.Narration !== row.Particulars) {
+        let narrationText = row.transactionDetails || row.Narration || row.Particulars || "";
+        if (row.Narration && row.Narration !== row.Particulars && !narrationText.includes(row.Narration)) {
           narrationText = narrationText ? `${narrationText} ${row.Narration}` : row.Narration;
         }
         
+        const extractedName = extractPartyName(row.Particulars || narrationText) || extractPartyName(narrationText);
+        
         return {
           ...row,
-          Particulars: getSuspenseLedgerName(),
-          Narration: narrationText.trim()
+          Particulars: extractedName || getSuspenseLedgerName(),
+          name: extractedName,
+          transactionDetails: narrationText.trim(),
+          transactionType: row.transactionType || detectTransactionType(narrationText),
+          Narration: ""
         };
       });
 
@@ -1282,14 +1302,21 @@ const BankStatementImport: React.FC = () => {
 
         if (isStartOfDate(rowData.date)) {
           if (currentTxn) {
+            const rawDetails = currentTxn.Particulars || "";
+            const extractedParty = extractPartyName(rawDetails) || getSuspenseLedgerName();
             allExtractedTxns.push({
               Date: currentTxn.Date,
-              Particulars: getSuspenseLedgerName(),
-              Narration: currentTxn.Particulars,
+              valueDate: currentTxn.Date,
+              transactionType: detectTransactionType(rawDetails),
+              transactionDetails: rawDetails,
+              name: extractedParty,
+              Particulars: extractedParty,
+              Narration: "",
               Debit: Number(currentTxn.Debit.replace(/[^\d.]/g, "")) || 0,
               Credit: Number(currentTxn.Credit.replace(/[^\d.]/g, "")) || 0,
               Balance: currentTxn.Balance,
               "Reference number": currentTxn.refNo,
+              chequeNumber: currentTxn.refNo,
             });
           }
           currentTxn = {
@@ -1338,14 +1365,21 @@ const BankStatementImport: React.FC = () => {
     }
 
     if (currentTxn) {
+      const rawDetails = currentTxn.Particulars || "";
+      const extractedParty = extractPartyName(rawDetails) || getSuspenseLedgerName();
       allExtractedTxns.push({
         Date: currentTxn.Date,
-        Particulars: getSuspenseLedgerName(),
-        Narration: currentTxn.Particulars,
+        valueDate: currentTxn.Date,
+        transactionType: detectTransactionType(rawDetails),
+        transactionDetails: rawDetails,
+        name: extractedParty,
+        Particulars: extractedParty,
+        Narration: "",
         Debit: Number(currentTxn.Debit.replace(/[^\d.]/g, "")) || 0,
         Credit: Number(currentTxn.Credit.replace(/[^\d.]/g, "")) || 0,
         Balance: currentTxn.Balance,
         "Reference number": currentTxn.refNo,
+        chequeNumber: currentTxn.refNo,
       });
     }
 
@@ -1480,15 +1514,24 @@ const BankStatementImport: React.FC = () => {
         detectedBank = "State Bank of India";
       }
 
-      const mappedOcrTxns = allOcrTxns.map((t) => ({
-        Date: t.date,
-        Particulars: getSuspenseLedgerName(),
-        Narration: t.particulars,
-        Debit: t.debit,
-        Credit: t.credit,
-        Balance: t.balance,
-        "Reference number": t.refNo,
-      }));
+      const mappedOcrTxns = allOcrTxns.map((t) => {
+        const rawDetails = t.particulars || "";
+        const partyName = extractPartyName(rawDetails) || getSuspenseLedgerName();
+        return {
+          Date: t.date,
+          valueDate: t.date,
+          transactionType: detectTransactionType(rawDetails),
+          transactionDetails: rawDetails,
+          name: partyName,
+          Particulars: partyName,
+          Narration: "",
+          Debit: t.debit,
+          Credit: t.credit,
+          Balance: t.balance,
+          "Reference number": t.refNo,
+          chequeNumber: t.refNo,
+        };
+      });
 
       await mapAndSequenceRows(mappedOcrTxns, detectedBank);
     } catch (err: any) {
@@ -2398,9 +2441,6 @@ const BankStatementImport: React.FC = () => {
                           Particulars
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Narration
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Voucher
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase text-right">
@@ -2554,24 +2594,6 @@ const BankStatementImport: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-xs">
-                              {isEditing ? (
-                                <input
-                                  title="Edit Narration"
-                                  type="text"
-                                  value={editValues.Narration || ""}
-                                  onChange={(e) =>
-                                    setEditValues((prev) => ({
-                                      ...prev,
-                                      Narration: e.target.value,
-                                    }))
-                                  }
-                                  className="px-2 py-1 border rounded text-xs w-full"
-                                />
-                              ) : (
-                                row.Narration
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm font-semibold capitalize text-blue-700">

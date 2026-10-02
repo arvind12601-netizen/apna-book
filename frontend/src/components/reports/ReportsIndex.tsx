@@ -51,7 +51,8 @@ const ReportsIndex: React.FC = () => {
         { icon: <FileText size={20} />, name: 'Account Summary', path: '/app/reports/account-summary' },
         { icon: <FileText size={20} />, name: 'Receipt and Payment Account', path: '/app/reports/receipt-payment-account', isPending: true },
         { icon: <ShieldCheck size={20} />, name: '26AB Report', path: '/app/reports/26as', isPending: true },
-        { icon: <FileText size={20} />, name: 'Tax Status', path: '/app/reports/tax-status', isPending: true }
+        { icon: <FileText size={20} />, name: 'Tax Status', path: '/app/reports/tax-status', isPending: true },
+        { icon: <FileText size={20} />, name: 'Books vs AIS Matching', path: '/app/reports/books-vs-ais', isPending: true }
       ]
     },
     {
@@ -88,7 +89,7 @@ const ReportsIndex: React.FC = () => {
         { icon: <Calendar size={20} />, name: 'B2C HSN', path: '/app/reports/b2chsn' },
         { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsn' },
         { icon: <FileText size={20} />, name: 'Gstr1 vs Gstr3b', path: '/app/reports/gstr1-vs-gstr3b', isPending: true },
-        { icon: <FileText size={20} />, name: 'Gstr2a vs Gstr2b Matching', path: '/app/reports/gstr2a-vs-gstr2b', isPending: true }
+        { icon: <FileText size={20} />, name: 'Books vs Gstr1', path: '/app/reports/books-vs-gstr1', isPending: true }
       ]
     },
     {
@@ -103,9 +104,8 @@ const ReportsIndex: React.FC = () => {
         { icon: <Calendar size={20} />, name: 'B2C HSN', path: '/app/reports/b2chsnpurchase' },
         { icon: <BookOpen size={20} />, name: 'All HSN', path: '/app/reports/allhsnpurchase' },
         { icon: <FileText size={20} />, name: 'Books vs 2A', path: '/app/reports/books-vs-2a', isPending: true },
-        { icon: <FileText size={20} />, name: 'Books vs Gstr1', path: '/app/reports/books-vs-gstr1', isPending: true },
         { icon: <FileText size={20} />, name: 'Books vs 2B', path: '/app/reports/books-vs-2b', isPending: true },
-        { icon: <FileText size={20} />, name: 'Books vs AIS Matching', path: '/app/reports/books-vs-ais', isPending: true }
+        { icon: <FileText size={20} />, name: 'Gstr2a vs Gstr2b Matching', path: '/app/reports/gstr2a-vs-gstr2b', isPending: true }
       ]
     }
   ];

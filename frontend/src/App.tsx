@@ -1913,7 +1913,7 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Books vs AIS Matching" category="Purchase Reports" />
+                        <ReportComingSoon title="Books vs AIS Matching" category="Accounting Reports" />
                       </RequireSubscription>
                     </RequireCompany>
                   }
