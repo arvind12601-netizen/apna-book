@@ -407,14 +407,84 @@ const VouchersIndex: React.FC = () => {
         {
           id: "26as-import",
           icon: <ShieldCheck size={20} className="text-red-600 dark:text-red-400" />,
-          name: "26Ab Report",
+          name: "26AS",
           path: "/app/vouchers/import/26as",
           color:
             theme === "dark"
               ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
               : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
           iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import 26AS/26Ab TDS statement data",
+          description: "Import Form 26AS TDS statement data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "ais-import",
+          icon: <FileText size={20} className="text-red-600 dark:text-red-400" />,
+          name: "AIS",
+          path: "/app/vouchers/import/books-vs-ais",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import AIS statement data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr1-import",
+          icon: <BarChart2 size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR1",
+          path: "/app/vouchers/import/books-vs-gstr1",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR-1 return data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr3b-import",
+          icon: <BarChart2 size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR3B",
+          path: "/app/vouchers/import/gstr1-vs-gstr3b",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR-3B return data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr2a-import",
+          icon: <PieChart size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR2A",
+          path: "/app/vouchers/import/books-vs-2a",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR-2A data",
+          category: "import",
+          isPendingItem: true,
+        },
+        {
+          id: "gstr2b-import",
+          icon: <PieChart size={20} className="text-red-600 dark:text-red-400" />,
+          name: "GSTR2B",
+          path: "/app/vouchers/import/gstr2a-vs-gstr2b",
+          color:
+            theme === "dark"
+              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
+              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
+          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
+          description: "Import GSTR-2B data",
           category: "import",
           isPendingItem: true,
         },
@@ -429,62 +499,6 @@ const VouchersIndex: React.FC = () => {
               : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
           iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
           description: "Import Tax compliance status data",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
-          id: "gstr1-vs-gstr3b-import",
-          icon: <BarChart2 size={20} className="text-red-600 dark:text-red-400" />,
-          name: "GSTR1 vs GSTR3B",
-          path: "/app/vouchers/import/gstr1-vs-gstr3b",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import GSTR1 vs GSTR3B comparison data",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
-          id: "gstr2a-vs-gstr2b-import",
-          icon: <PieChart size={20} className="text-red-600 dark:text-red-400" />,
-          name: "GSTR2A vs GSTR2B",
-          path: "/app/vouchers/import/gstr2a-vs-gstr2b",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import GSTR2A vs GSTR2B matching data",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
-          id: "books-vs-2a-import",
-          icon: <BookOpen size={20} className="text-red-600 dark:text-red-400" />,
-          name: "Books vs 2A",
-          path: "/app/vouchers/import/books-vs-2a",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import Books vs GSTR-2A comparison data",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
-          id: "books-vs-gstr1-import",
-          icon: <FileText size={20} className="text-red-600 dark:text-red-400" />,
-          name: "Books vs GSTR1",
-          path: "/app/vouchers/import/books-vs-gstr1",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import Books vs GSTR-1 comparison data",
           category: "import",
           isPendingItem: true,
         },

@@ -1913,7 +1913,47 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Books vs AIS Matching" category="Purchase Reports" />
+                        <ReportComingSoon title="Books vs AIS Matching" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/ledger-confirmation"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Ledger Confirmation" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/income-expenditure"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Income and Expenditure" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/capital-account"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Capital Account" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/rcm-report"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="RCM Report" category="Purchase Reports" />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -2447,6 +2487,16 @@ function App() {
                   element={
                     <RequireCompany>
                       <DPRReport />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="loan/networth-certificate"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Networth Certificate" category="Loan Module" />
+                      </RequireSubscription>
                     </RequireCompany>
                   }
                 />
