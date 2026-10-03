@@ -32,9 +32,7 @@ interface SingleReportImportPageProps {
 }
 
 const REPORT_ICONS: Record<string, React.ReactNode> = {
-  "receipt-payment-account": <FileText className="text-red-600 dark:text-red-400" size={28} />,
   "26as": <ShieldCheck className="text-red-600 dark:text-red-400" size={28} />,
-  "tax-status": <AlertTriangle className="text-red-600 dark:text-red-400" size={28} />,
   "gstr1-vs-gstr3b": <BarChart2 className="text-red-600 dark:text-red-400" size={28} />,
   "gstr2a-vs-gstr2b": <PieChart className="text-red-600 dark:text-red-400" size={28} />,
   "books-vs-2a": <BookOpen className="text-red-600 dark:text-red-400" size={28} />,
@@ -49,8 +47,8 @@ const SingleReportImportPage: React.FC<SingleReportImportPageProps> = ({
   const { theme } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const activeReportType = (propReportType || params.reportType || "receipt-payment-account") as ReportType;
-  const meta = REPORT_META_MAP[activeReportType] || REPORT_META_MAP["receipt-payment-account"];
+  const activeReportType = (propReportType || params.reportType || "26as") as ReportType;
+  const meta = REPORT_META_MAP[activeReportType] || REPORT_META_MAP["26as"];
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importedRows, setImportedRows] = useState<Record<string, any>[]>([]);
