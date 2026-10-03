@@ -2,9 +2,7 @@ import * as XLSX from "xlsx-js-style";
 import axiosInstance from "../api/axiosInstance";
 
 export type ReportType =
-  | "receipt-payment-account"
   | "26as"
-  | "tax-status"
   | "gstr1-vs-gstr3b"
   | "gstr2a-vs-gstr2b"
   | "books-vs-2a"
@@ -21,56 +19,6 @@ export interface ReportMeta {
 }
 
 export const REPORT_META_MAP: Record<ReportType, ReportMeta> = {
-  "receipt-payment-account": {
-    id: "receipt-payment-account",
-    name: "Receipt and Payment Account",
-    reportPath: "/app/reports/receipt-payment-account",
-    category: "Accounting Reports",
-    description: "Import summary of cash and bank receipts and payments",
-    fields: ["Date", "Category", "Type", "Head", "Amount", "Remarks"],
-    sampleData: [
-      {
-        Date: "2026-04-01",
-        Category: "Opening Cash Balance",
-        Type: "Receipt",
-        Head: "Cash",
-        Amount: 15000,
-        Remarks: "Opening Balance",
-      },
-      {
-        Date: "2026-04-01",
-        Category: "Opening Bank Balance",
-        Type: "Receipt",
-        Head: "Bank",
-        Amount: 85000,
-        Remarks: "HDFC Bank Opening",
-      },
-      {
-        Date: "2026-04-10",
-        Category: "Sales Collection",
-        Type: "Receipt",
-        Head: "Bank",
-        Amount: 120000,
-        Remarks: "Customer Invoice Payments",
-      },
-      {
-        Date: "2026-04-15",
-        Category: "Office Rent",
-        Type: "Payment",
-        Head: "Bank",
-        Amount: 25000,
-        Remarks: "April Rent",
-      },
-      {
-        Date: "2026-04-25",
-        Category: "Staff Salaries",
-        Type: "Payment",
-        Head: "Bank",
-        Amount: 45000,
-        Remarks: "April Salaries",
-      },
-    ],
-  },
   "26as": {
     id: "26as",
     name: "26Ab (Form 26AS Report)",
@@ -107,55 +55,6 @@ export const REPORT_META_MAP: Record<ReportType, ReportMeta> = {
         "TDS Deducted": 20000,
         "TDS Deposited": 20000,
         Status: "Matched",
-      },
-    ],
-  },
-  "tax-status": {
-    id: "tax-status",
-    name: "Tax Status",
-    reportPath: "/app/reports/tax-status",
-    category: "Accounting Reports",
-    description: "Import GST & Statutory compliance return filing status data",
-    fields: [
-      "Return Period",
-      "Tax Type",
-      "Due Date",
-      "Filing Date",
-      "ARN Number",
-      "Tax Liability",
-      "Tax Paid",
-      "Compliance Status",
-    ],
-    sampleData: [
-      {
-        "Return Period": "April 2026",
-        "Tax Type": "GSTR-1",
-        "Due Date": "2026-05-11",
-        "Filing Date": "2026-05-10",
-        "ARN Number": "AA2704260011223",
-        "Tax Liability": 54000,
-        "Tax Paid": 54000,
-        "Compliance Status": "Filed",
-      },
-      {
-        "Return Period": "April 2026",
-        "Tax Type": "GSTR-3B",
-        "Due Date": "2026-05-20",
-        "Filing Date": "2026-05-19",
-        "ARN Number": "AA2704260011224",
-        "Tax Liability": 54000,
-        "Tax Paid": 54000,
-        "Compliance Status": "Filed",
-      },
-      {
-        "Return Period": "Q1 2026-27",
-        "Tax Type": "TDS 26Q",
-        "Due Date": "2026-07-31",
-        "Filing Date": "-",
-        "ARN Number": "-",
-        "Tax Liability": 23000,
-        "Tax Paid": 0,
-        "Compliance Status": "Pending",
       },
     ],
   },

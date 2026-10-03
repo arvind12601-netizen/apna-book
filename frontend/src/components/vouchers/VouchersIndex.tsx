@@ -391,20 +391,6 @@ const VouchersIndex: React.FC = () => {
       isPendingSection: true,
       vouchers: [
         {
-          id: "receipt-payment-account-import",
-          icon: <FileText size={20} className="text-red-600 dark:text-red-400" />,
-          name: "Receipt & Payment Account",
-          path: "/app/vouchers/import/receipt-payment-account",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import data for Receipt & Payment Account",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
           id: "26as-import",
           icon: <ShieldCheck size={20} className="text-red-600 dark:text-red-400" />,
           name: "26AS",
@@ -485,20 +471,6 @@ const VouchersIndex: React.FC = () => {
               : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
           iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
           description: "Import GSTR-2B data",
-          category: "import",
-          isPendingItem: true,
-        },
-        {
-          id: "tax-status-import",
-          icon: <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />,
-          name: "Tax Status",
-          path: "/app/vouchers/import/tax-status",
-          color:
-            theme === "dark"
-              ? "bg-red-950/30 border border-red-800/60 hover:bg-red-900/40 text-red-300"
-              : "bg-red-50 border border-red-200 hover:bg-red-100 text-red-700",
-          iconBg: theme === "dark" ? "bg-red-900/60 text-red-300" : "bg-red-100 text-red-600",
-          description: "Import Tax compliance status data",
           category: "import",
           isPendingItem: true,
         },

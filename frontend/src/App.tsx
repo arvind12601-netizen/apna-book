@@ -126,13 +126,12 @@ import B2B from "./components/reports/B2B";
 import B2C from "./components/reports/B2C";
 import Consolidation from "./components/reports/Consolidation";
 import FixedAssetsSchedule from "./components/reports/FixedAssetsSchedule";
-import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
 import Form26ASReport from "./components/reports/Form26ASReport";
-import TaxStatusReport from "./components/reports/TaxStatusReport";
 import Gstr1VsGstr3bReport from "./components/reports/Gstr1VsGstr3bReport";
 import Gstr2aVsGstr2bReport from "./components/reports/Gstr2aVsGstr2bReport";
 import BooksVs2aReport from "./components/reports/BooksVs2aReport";
 import BooksVsGstr1Report from "./components/reports/BooksVsGstr1Report";
+import RCMReport from "./components/reports/RCMReport";
 import ReportComingSoon from "./components/reports/ReportComingSoon";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
@@ -1021,26 +1020,10 @@ function App() {
                 />
                 {/* Dedicated Report Data Import Routes */}
                 <Route
-                  path="vouchers/import/receipt-payment-account"
-                  element={
-                    <RequireCompany>
-                      <SingleReportImportPage reportType="receipt-payment-account" />
-                    </RequireCompany>
-                  }
-                />
-                <Route
                   path="vouchers/import/26as"
                   element={
                     <RequireCompany>
                       <SingleReportImportPage reportType="26as" />
-                    </RequireCompany>
-                  }
-                />
-                <Route
-                  path="vouchers/import/tax-status"
-                  element={
-                    <RequireCompany>
-                      <SingleReportImportPage reportType="tax-status" />
                     </RequireCompany>
                   }
                 />
@@ -1821,14 +1804,6 @@ function App() {
                   }
                 />
                 <Route
-                  path="reports/receipt-payment-account"
-                  element={
-                    <RequireCompany>
-                      <ReceiptPaymentAccount />
-                    </RequireCompany>
-                  }
-                />
-                <Route
                   path="reports/26as"
                   element={
                     <RequireCompany>
@@ -1849,11 +1824,21 @@ function App() {
                   }
                 />
                 <Route
-                  path="reports/tax-status"
+                  path="reports/books-vs-26as"
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <TaxStatusReport />
+                        <Form26ASReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/books-vs-gstr3b"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Books vs GSTR3B" category="Sales Reports" />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -1953,8 +1938,24 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="RCM Report" category="Purchase Reports" />
+                        <RCMReport />
                       </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/gst-analysis"
+                  element={
+                    <RequireCompany>
+                      <GSTAnalysis />
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/gst-assessment"
+                  element={
+                    <RequireCompany>
+                      <GSTAnalysis />
                     </RequireCompany>
                   }
                 />

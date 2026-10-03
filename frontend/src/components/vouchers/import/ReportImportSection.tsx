@@ -31,9 +31,7 @@ interface ReportImportSectionProps {
 }
 
 const REPORT_ICONS: Record<string, React.ReactNode> = {
-  "receipt-payment-account": <FileText className="text-red-600 dark:text-red-400" size={20} />,
   "26as": <ShieldCheck className="text-red-600 dark:text-red-400" size={20} />,
-  "tax-status": <AlertTriangle className="text-red-600 dark:text-red-400" size={20} />,
   "gstr1-vs-gstr3b": <BarChart2 className="text-red-600 dark:text-red-400" size={20} />,
   "gstr2a-vs-gstr2b": <PieChart className="text-red-600 dark:text-red-400" size={20} />,
   "books-vs-2a": <BookOpen className="text-red-600 dark:text-red-400" size={20} />,
@@ -48,9 +46,7 @@ export const ReportImportSection: React.FC<ReportImportSectionProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reportTypesList: ReportType[] = [
-    "receipt-payment-account",
     "26as",
-    "tax-status",
     "gstr1-vs-gstr3b",
     "gstr2a-vs-gstr2b",
     "books-vs-2a",
@@ -63,7 +59,7 @@ export const ReportImportSection: React.FC<ReportImportSectionProps> = ({
   const [selectedReport, setSelectedReport] = useState<ReportType>(
     isValidReportType(initialReportType)
       ? (initialReportType as ReportType)
-      : "receipt-payment-account"
+      : "26as"
   );
 
   useEffect(() => {
