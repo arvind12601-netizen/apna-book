@@ -54,7 +54,12 @@ const ReportsIndex: React.FC = () => {
         { icon: <FileText size={20} />, name: 'Books vs AIS', path: '/app/reports/books-vs-ais', isPending: true },
         { icon: <FileText size={20} />, name: 'Income and Expenditure', path: '/app/reports/income-expenditure', isPending: true },
         { icon: <FileText size={20} />, name: 'Capital Account', path: '/app/reports/capital-account', isPending: true },
-        { icon: <BarChart2 size={20} />, name: 'GST Assessment', path: '/app/reports/gst-analysis' }
+        { icon: <BarChart2 size={20} />, name: 'GST Assessment', path: '/app/reports/gst-analysis' },
+        { icon: <FileText size={20} />, name: 'Receipt and Payment Account', path: '/app/reports/receipt-payment-account', isPending: true },
+        { icon: <FileText size={20} />, name: 'Tax Status', path: '/app/reports/tax-status', isPending: true },
+        { icon: <BarChart2 size={20} />, name: 'Financial Analysis', path: '/app/reports/financial-analysis', isPending: true },
+        { icon: <TrendingUp size={20} />, name: 'Ratio Analysis', path: '/app/reports/ratio-analysis', isPending: true },
+        { icon: <Activity size={20} />, name: 'Financial Changes', path: '/app/reports/financial-changes', isPending: true }
       ]
     },
     {
