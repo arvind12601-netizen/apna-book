@@ -92,6 +92,7 @@ import ReportsIndex from "./components/reports/ReportsIndex";
 import AccountSummary from "./components/reports/AccountSummary";
 import DayBook from "./components/reports/DayBook";
 import LedgerReport from "./components/reports/LedgerReport";
+import LedgerConfirmationReport from "./components/reports/LedgerConfirmationReport";
 import TrialBalance from "./components/reports/TrialBalance";
 // import TradingAccount from './components/reports/TradingAccount';
 // import ProfitLoss from './components/accounting/ProfitLoss';
@@ -1910,7 +1911,17 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Ledger Confirmation" category="Accounting Reports" />
+                        <LedgerConfirmationReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/ledger-confirmation/:id"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <LedgerConfirmationReport />
                       </RequireSubscription>
                     </RequireCompany>
                   }

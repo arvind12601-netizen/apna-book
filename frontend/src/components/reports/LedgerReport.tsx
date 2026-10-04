@@ -12,6 +12,7 @@ import {
   Edit,
   ChevronDown,
   X,
+  FileCheck,
 } from "lucide-react";
 import { useCompany } from "../../context/CompanyContext";
 import * as XLSX from "xlsx";
@@ -781,7 +782,24 @@ const LedgerReport: React.FC = () => {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Ledger Report</h1>
-        <div className="ml-auto flex space-x-2">
+        <div className="ml-auto flex items-center space-x-2">
+          <button
+            title="Ledger Confirmation"
+            type="button"
+            onClick={() => {
+              if (ledgerId) {
+                navigate(`/app/reports/ledger-confirmation?ledgerId=${ledgerId}&fromDate=${fromDate}&toDate=${toDate}`);
+              } else {
+                navigate("/app/reports/ledger-confirmation");
+              }
+            }}
+            className={`flex items-center space-x-1 px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 ${
+              theme === "dark" ? "hover:bg-blue-900/50" : "hover:bg-blue-100"
+            }`}
+          >
+            <FileCheck size={16} />
+            <span>Ledger Confirmation</span>
+          </button>
           <button
             title="Toggle Filters"
             type="button"
