@@ -92,6 +92,7 @@ import ReportsIndex from "./components/reports/ReportsIndex";
 import AccountSummary from "./components/reports/AccountSummary";
 import DayBook from "./components/reports/DayBook";
 import LedgerReport from "./components/reports/LedgerReport";
+import LedgerConfirmationReport from "./components/reports/LedgerConfirmationReport";
 import TrialBalance from "./components/reports/TrialBalance";
 // import TradingAccount from './components/reports/TradingAccount';
 // import ProfitLoss from './components/accounting/ProfitLoss';
@@ -132,6 +133,8 @@ import Gstr2aVsGstr2bReport from "./components/reports/Gstr2aVsGstr2bReport";
 import BooksVs2aReport from "./components/reports/BooksVs2aReport";
 import BooksVsGstr1Report from "./components/reports/BooksVsGstr1Report";
 import RCMReport from "./components/reports/RCMReport";
+import ReceiptPaymentAccount from "./components/reports/ReceiptPaymentAccount";
+import TaxStatusReport from "./components/reports/TaxStatusReport";
 import ReportComingSoon from "./components/reports/ReportComingSoon";
 import LedgerCaraction from "./components/reports/LedgerCaraction";
 import AttributeSummary from "./components/reports/AttributeSummary";
@@ -1908,7 +1911,17 @@ function App() {
                   element={
                     <RequireCompany>
                       <RequireSubscription>
-                        <ReportComingSoon title="Ledger Confirmation" category="Accounting Reports" />
+                        <LedgerConfirmationReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/ledger-confirmation/:id"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <LedgerConfirmationReport />
                       </RequireSubscription>
                     </RequireCompany>
                   }
@@ -1939,6 +1952,56 @@ function App() {
                     <RequireCompany>
                       <RequireSubscription>
                         <RCMReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/receipt-payment-account"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReceiptPaymentAccount />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/tax-status"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <TaxStatusReport />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/financial-analysis"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Financial Analysis" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/ratio-analysis"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Ratio Analysis" category="Accounting Reports" />
+                      </RequireSubscription>
+                    </RequireCompany>
+                  }
+                />
+                <Route
+                  path="reports/financial-changes"
+                  element={
+                    <RequireCompany>
+                      <RequireSubscription>
+                        <ReportComingSoon title="Financial Changes" category="Accounting Reports" />
                       </RequireSubscription>
                     </RequireCompany>
                   }

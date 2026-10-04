@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, Plus, Search, ArrowLeft, Download, FileCode2, Copy, Upload } from "lucide-react";
+import { Edit, Trash2, Plus, Search, ArrowLeft, Download, FileCode2, Copy, Upload, FileCheck } from "lucide-react";
 import { useAppContext } from "../../../context/AppContext";
 import type { Ledger, LedgerGroup } from "../../../types";
 import { formatGSTNumber } from "../../../utils/ledgerUtils";
@@ -442,6 +442,15 @@ const LedgerList: React.FC = () => {
       </td>
       <td className="px-4 py-3">
         <div className="flex justify-center items-center space-x-2">
+          <button
+            title="Ledger Confirmation"
+            onClick={() => navigate(`/app/reports/ledger-confirmation?ledgerId=${ledger.id}`)}
+            className={`p-1 rounded transition-all text-blue-600 dark:text-blue-400 ${
+              theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100"
+            }`}
+          >
+            <FileCheck size={16} />
+          </button>
           {ledger.ownerId === 0 ? (
             <>
               <span className={`px-2 py-1 text-xs font-bold rounded uppercase tracking-wider ${
