@@ -679,15 +679,16 @@ const Profile: React.FC = () => {
                   label="Company Type"
                   value={company.companyType || ""}
                   onChange={handleChange}
-                 options={[
-  { value: "", label: "Select Company Type" },
-  { value: "Director", label: "Director" },
-  { value: "Proprietor", label: "Proprietor" },
-  { value: "Partnership", label: "Partnership" },
-  { value: "Trust", label: "Trust" },
-  { value: "Society", label: "Society" },
-  { value: "HUF", label: "Hindu Undivided Family (HUF)" }
-]}
+                  options={[
+                    { value: "", label: "Select Company Type" },
+                    { value: "Proprietor", label: "Proprietor" },
+                    { value: "Partnership", label: "Partnership" },
+                    { value: "Trust", label: "Trust" },
+                    { value: "Limited Liability Partnership", label: "Limited Liability Partnership" },
+                    { value: "Private Limited Company", label: "Private Limited Company" },
+                    { value: "Society", label: "Society" },
+                    { value: "HUF", label: "Hindu Undivided Family (HUF)" }
+                  ]}
                   icon={<Building size={16} />}
                   theme={theme}
                 />

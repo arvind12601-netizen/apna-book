@@ -1556,7 +1556,6 @@ const GSTR3B: React.FC = () => {
                 <option value="">Select Designation</option>
                 <option value="Proprietor">Proprietor</option>
                 <option value="Partner">Partner</option>
-                <option value="Director">Director</option>
                 <option value="Company Secretary">Company Secretary</option>
                 <option value="Chartered Accountant">
                   Chartered Accountant

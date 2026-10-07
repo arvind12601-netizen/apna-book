@@ -776,9 +776,10 @@ const CompanyForm: React.FC = () => {
                   onChange={handleChange}
                   options={[
                     { value: "", label: "Select Company Type" },
-                    { value: "Director", label: "Director" },
                     { value: "Proprietor", label: "Proprietor" },
                     { value: "Partnership", label: "Partnership" },
+                    { value: "Limited Liability Partnership", label: "Limited Liability Partnership" },
+                    { value: "Private Limited Company", label: "Private Limited Company" },
                     { value: "Trust", label: "Trust" },
                     { value: "Society", label: "Society" },
                     { value: "HUF", label: "Hindu Undivided Family (HUF)" },

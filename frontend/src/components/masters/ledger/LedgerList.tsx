@@ -78,59 +78,6 @@ const LedgerList: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  const handleImportAdminLedger = async () => {
-    try {
-      const companyId = localStorage.getItem("company_id");
-      const ownerType = localStorage.getItem("supplier");
-      const userType = localStorage.getItem("userType");
-
-      let fetchOwnerType = ownerType;
-      let fetchOwnerId = ownerType === "employee"
-        ? localStorage.getItem("employee_id")
-        : localStorage.getItem("user_id");
-
-      if (userType === "ca_employee") {
-        fetchOwnerType = "employee";
-        fetchOwnerId = localStorage.getItem("employee_id");
-      }
-
-      if (!companyId || !fetchOwnerType || !fetchOwnerId) {
-        Swal.fire("Error", "Missing required user identifiers for import", "error");
-        return;
-      }
-
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ledger/import-admin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          companyId,
-          ownerType: fetchOwnerType,
-          ownerId: fetchOwnerId,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        Swal.fire({
-          icon: "success",
-          title: "Import Successful",
-          text: data.message,
-          timer: 2000,
-          showConfirmButton: false,
-        });
-        await fetchData();
-      } else {
-        Swal.fire("Import Failed", data.message || "Failed to import admin ledgers", "error");
-      }
-    } catch (err) {
-      console.error("Error importing admin ledgers:", err);
-      Swal.fire("Error", "Failed to connect to server", "error");
-    }
-  };
-
   const resolveGroup = (groupId: number, normalGroups: any[]) => {
     // 🔹 negative id → baseGroups se uthao
     if (groupId < 0) {
@@ -152,8 +99,7 @@ const LedgerList: React.FC = () => {
 
   const userLedgers = useMemo(() => {
     if (!Array.isArray(ledgers)) return [];
-    // Only display user-owned ledgers (filter out live reference admin ledgers with ownerId === 0)
-    return ledgers.filter((l) => l.ownerId !== 0);
+    return ledgers;
   }, [ledgers]);
 
   const availableGroups = useMemo(() => {
@@ -526,13 +472,6 @@ const LedgerList: React.FC = () => {
               className="flex items-center px-3 py-1.5 text-xs font-medium rounded bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-xs"
             >
               Opening Balance
-            </button>
-            <button
-              type="button"
-              onClick={handleImportAdminLedger}
-              className="flex items-center px-3 py-1.5 text-xs font-medium rounded bg-teal-600 hover:bg-teal-700 text-white transition-colors shadow-xs"
-            >
-              Import Admin Ledger
             </button>
             <button
               type="button"
