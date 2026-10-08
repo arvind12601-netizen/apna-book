@@ -100,6 +100,8 @@ router.get("/", async (req, res) => {
         l.district,
         l.pin_code AS pinCode,
         l.created_at AS createdAt,
+        l.company_id AS companyId,
+        l.owner_type AS ownerType,
         l.owner_id AS ownerId,
         g.name AS groupName,
         g.type AS groupType,

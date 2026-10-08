@@ -106,6 +106,8 @@ export type Ledger = {
   closingBalance?: number;
   pinCode?: string;
   ownerId?: number;
+  companyId?: number | string;
+  ownerType?: string;
 };
 export interface LedgerWithGroup extends Ledger {
   groupName?: string;
