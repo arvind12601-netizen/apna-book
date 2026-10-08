@@ -391,6 +391,15 @@ const SubGroupSummary: React.FC = () => {
                         <React.Fragment key={grpId}>
                           {groupLedgers.map((ledger) => {
                             const b = getLedgerBalances(ledger);
+                            const trimmedName = ledger.name.trim().toLowerCase();
+                            const isCashLedger =
+                              trimmedName === "cash" ||
+                              trimmedName === "cash a/c" ||
+                              trimmedName === "cash account" ||
+                              trimmedName.startsWith("cash a/c") ||
+                              trimmedName.startsWith("cash ");
+                            const isCreditBalance = b.closingSigned < -0.001;
+                            const shouldHighlightRed = isCashLedger && isCreditBalance;
 
                             return (
                               <tr
@@ -398,10 +407,15 @@ const SubGroupSummary: React.FC = () => {
                                 onClick={() =>
                                   navigate(`/app/reports/ledger/${ledger.id}`)
                                 }
-                                className={`border-b cursor-pointer transition-colors ${theme === "dark"
-                                  ? "border-gray-700 hover:bg-gray-700"
-                                  : "border-gray-200 hover:bg-gray-50"
-                                  }`}
+                                className={`border-b cursor-pointer transition-colors ${
+                                  shouldHighlightRed
+                                    ? theme === "dark"
+                                      ? "border-red-900/50 bg-red-900/30 hover:bg-red-900/50"
+                                      : "border-red-200 bg-red-100/80 hover:bg-red-200/80"
+                                    : theme === "dark"
+                                      ? "border-gray-700 hover:bg-gray-700"
+                                      : "border-gray-200 hover:bg-gray-50"
+                                }`}
                               >
                                 <td className="py-3 px-4 text-blue-600 font-medium ">
                                   {ledger.name}
