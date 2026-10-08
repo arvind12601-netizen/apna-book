@@ -494,6 +494,159 @@ router.post("/bulk", async (req, res) => {
   }
 });
 
+// Get Admin ledger import status for a company
+router.get("/import-status", async (req, res) => {
+  const companyId = req.query.company_id || req.query.companyId;
+
+  if (!companyId) {
+    return res.status(400).json({ message: "company_id is required" });
+  }
+
+  try {
+    const [rows] = await db.execute(
+      "SELECT admin_ledgers_imported FROM tbcompanies WHERE id = ?",
+      [companyId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    res.json({
+      imported: Boolean(rows[0].admin_ledgers_imported)
+    });
+  } catch (err) {
+    console.error("Error fetching import status:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Import Admin ledgers into target company
+router.post("/import-from-admin", async (req, res) => {
+  const companyId = req.body.companyId || req.body.company_id || req.query.company_id;
+  const ownerType = req.body.ownerType || req.body.owner_type || req.query.owner_type || "employee";
+  const ownerId = req.body.ownerId || req.body.owner_id || req.query.owner_id || 0;
+
+  if (!companyId) {
+    return res.status(400).json({ message: "companyId is required" });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Fetch Admin template ledgers (company_id = 0 AND owner_type = 'admin')
+    const [adminLedgers] = await connection.execute(
+      `SELECT name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code
+       FROM ledgers 
+       WHERE company_id = 0 AND owner_type = 'admin'`
+    );
+
+    if (adminLedgers.length === 0) {
+      await connection.execute(
+        "UPDATE tbcompanies SET admin_ledgers_imported = 1 WHERE id = ?",
+        [companyId]
+      );
+      await connection.commit();
+      return res.json({
+        success: true,
+        message: "No Admin ledgers configured to import.",
+        importedCount: 0,
+        skippedCount: 0
+      });
+    }
+
+    // 2. Fetch existing ledgers for target company to avoid duplicate creation
+    const [existingLedgers] = await connection.execute(
+      `SELECT LOWER(TRIM(name)) as name_lower FROM ledgers WHERE company_id = ?`,
+      [companyId]
+    );
+
+    const existingNamesSet = new Set(existingLedgers.map(l => l.name_lower));
+
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    // 3. Import missing Admin ledgers safely
+    for (const ledger of adminLedgers) {
+      const nameKey = (ledger.name || "").trim().toLowerCase();
+
+      if (existingNamesSet.has(nameKey)) {
+        skippedCount++;
+        continue;
+      }
+
+      // Double-check existence inside loop for atomicity
+      const [duplicateCheck] = await connection.execute(
+        `SELECT id FROM ledgers WHERE company_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))`,
+        [companyId, ledger.name]
+      );
+
+      if (duplicateCheck.length > 0) {
+        skippedCount++;
+        existingNamesSet.add(nameKey);
+        continue;
+      }
+
+      await connection.execute(
+        `INSERT INTO ledgers (
+          name, group_id, opening_balance, closing_balance, balance_type,
+          address, email, phone, gst_number, pan_number, tan_number,
+          depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          ledger.name,
+          ledger.group_id,
+          ledger.opening_balance || 0,
+          ledger.closing_balance || 0,
+          ledger.balance_type || 'debit',
+          ledger.address || null,
+          ledger.email || null,
+          ledger.phone || null,
+          ledger.gst_number || null,
+          ledger.pan_number || null,
+          ledger.tan_number || '',
+          ledger.depreciation_rate || null,
+          ledger.state || '',
+          ledger.district || '',
+          ledger.pin_code || '',
+          companyId,
+          ownerType,
+          ownerId
+        ]
+      );
+
+      importedCount++;
+      existingNamesSet.add(nameKey);
+    }
+
+    // 4. Mark Admin ledgers import as completed in database
+    await connection.execute(
+      "UPDATE tbcompanies SET admin_ledgers_imported = 1 WHERE id = ?",
+      [companyId]
+    );
+
+    await connection.commit();
+
+    return res.json({
+      success: true,
+      message: "Admin ledgers imported successfully",
+      importedCount,
+      skippedCount
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error("Error importing admin ledgers:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to import admin ledgers",
+      error: err.message
+    });
+  } finally {
+    connection.release();
+  }
+});
+
 // Get ledger by ID
 router.get("/:id", async (req, res) => {
   const ledgerId = parseInt(req.params.id, 10);

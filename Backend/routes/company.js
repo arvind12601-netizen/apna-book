@@ -214,19 +214,7 @@ router.post('/company', async (req, res) => {
       `, [companyId, username, hashedPassword, employeeId, email, roleId]);
     }
 
-    // --- Fetch and copy all global admin ledgers to this new company ---
-    const [adminLedgers] = await connection.query(
-      `SELECT name, group_id, opening_balance, balance_type FROM ledgers WHERE company_id = 0 AND owner_type = 'admin'`
-    );
-
-    for (const ledger of adminLedgers) {
-      await connection.query(
-        `INSERT INTO ledgers (name, group_id, opening_balance, balance_type, company_id, owner_type, owner_id)
-         VALUES (?, ?, ?, ?, ?, 'employee', 0)`,
-        [ledger.name, ledger.group_id, ledger.opening_balance, ledger.balance_type, companyId]
-      );
-    }
-
+    // Admin ledgers will be imported by user via /app/masters/ledger import UI
     await connection.commit();
     connection.release();
 

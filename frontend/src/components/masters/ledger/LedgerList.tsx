@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Edit, Trash2, Plus, Search, ArrowLeft, Download, FileCode2, Copy, Upload, FileCheck } from "lucide-react";
+import { Edit, Trash2, Plus, Search, ArrowLeft, Download, FileCode2, Copy, Upload } from "lucide-react";
 import { useAppContext } from "../../../context/AppContext";
 import type { Ledger, LedgerGroup } from "../../../types";
 import { formatGSTNumber } from "../../../utils/ledgerUtils";
@@ -20,6 +20,9 @@ const LedgerList: React.FC = () => {
   const [ledgerGroups, setLedgerGroups] = useState<LedgerGroup[]>([]);
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [isImported, setIsImported] = useState<boolean | null>(null);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -43,7 +46,24 @@ const LedgerList: React.FC = () => {
       if (!companyId || !fetchOwnerType || !fetchOwnerId) {
         console.error("Missing required identifiers for ledger GET");
         setLedgers([]);
+        setIsImported(true);
         return;
+      }
+
+      // Check Admin ledgers import status
+      try {
+        const statusRes = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/ledger/import-status?company_id=${companyId}`
+        );
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setIsImported(Boolean(statusData.imported));
+        } else {
+          setIsImported(false);
+        }
+      } catch (err) {
+        console.error("Error checking import status:", err);
+        setIsImported(false);
       }
 
       // Fetch ledgers scoped to company & owner
@@ -77,6 +97,76 @@ const LedgerList: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleImportAdminLedgers = async () => {
+    if (isImporting) return;
+
+    const companyId = localStorage.getItem("company_id");
+    const ownerType = localStorage.getItem("supplier");
+    const userType = localStorage.getItem("userType");
+
+    let fetchOwnerType = ownerType || "employee";
+    let fetchOwnerId = ownerType === "employee"
+      ? localStorage.getItem("employee_id")
+      : localStorage.getItem("user_id");
+
+    if (userType === "ca_employee") {
+      fetchOwnerType = "employee";
+      fetchOwnerId = localStorage.getItem("employee_id");
+    }
+
+    if (!companyId) {
+      setImportError("Company ID missing");
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/ledger/import-from-admin`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            companyId,
+            ownerType: fetchOwnerType,
+            ownerId: fetchOwnerId || 0
+          })
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Success!",
+          text: "Ledgers Imported Successfully",
+          timer: 1800,
+          showConfirmButton: false,
+        });
+        setIsImported(true);
+        await fetchData();
+      } else {
+        const errMsg = data.message || "Failed to import admin ledgers";
+        setImportError(errMsg);
+        Swal.fire("Import Failed", errMsg, "error");
+      }
+    } catch (err: any) {
+      console.error("Error importing admin ledgers:", err);
+      const errMsg = err.message || "Network error. Please try again.";
+      setImportError(errMsg);
+      Swal.fire("Network Error", errMsg, "error");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const resolveGroup = (groupId: number, normalGroups: any[]) => {
     // 🔹 negative id → baseGroups se uthao
@@ -388,15 +478,6 @@ const LedgerList: React.FC = () => {
       </td>
       <td className="px-4 py-3">
         <div className="flex justify-center items-center space-x-2">
-          <button
-            title="Ledger Confirmation"
-            onClick={() => navigate(`/app/reports/ledger-confirmation?ledgerId=${ledger.id}`)}
-            className={`p-1 rounded transition-all text-blue-600 dark:text-blue-400 ${
-              theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100"
-            }`}
-          >
-            <FileCheck size={16} />
-          </button>
           {ledger.ownerId === 0 ? (
             <>
               <span className={`px-2 py-1 text-xs font-bold rounded uppercase tracking-wider ${
@@ -442,6 +523,57 @@ const LedgerList: React.FC = () => {
       </td>
     </tr>
   );
+
+  if (isImported === null) {
+    return (
+      <div className="pt-[56px] px-4 min-h-[calc(100vh-56px)] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+          <span className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />
+          <span>Loading ledger options...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isImported === false) {
+    return (
+      <div className="pt-[56px] px-4 min-h-[calc(100vh-56px)] flex items-center justify-center">
+        <div className={`max-w-lg w-full rounded-2xl shadow-xl p-8 text-center border ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+        }`}>
+          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-5 shadow-sm">
+            <Download size={32} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Import Default Ledgers</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+            Admin has configured default ledgers for your company.
+          </p>
+
+          {importError && (
+            <div className="mb-5 p-3 text-xs rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-left">
+              {importError}
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={isImporting}
+            onClick={handleImportAdminLedgers}
+            className="w-full py-3.5 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+          >
+            {isImporting ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                Importing Ledgers...
+              </>
+            ) : (
+              "Import Ledger"
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
