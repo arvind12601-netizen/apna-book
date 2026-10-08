@@ -526,8 +526,9 @@ const LedgerList: React.FC = () => {
           )}
         </div>
       </td>
-    );
-  };
+    </tr>
+  );
+};
 
   if (isImported === null) {
     return (
