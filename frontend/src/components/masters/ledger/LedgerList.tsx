@@ -408,77 +408,82 @@ const LedgerList: React.FC = () => {
     setShowExportPopup(false);
   };
 
-  const renderLedgerRow = (ledger: Ledger) => (
-    <tr
-      key={ledger.id}
-      className={`hover:bg-opacity-10 hover:bg-blue-500 transition-colors ${
-        ledger.ownerId === 0
-          ? theme === "dark"
-            ? "bg-blue-900/10 border-b border-blue-900/30"
-            : "bg-blue-50/40 border-b border-blue-100"
-          : theme === "dark"
-            ? "border-b border-gray-700"
-            : "border-b border-gray-200"
-      }`}
-    >
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className={ledger.ownerId === 0 ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
-            {ledger.name}
-          </span>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        {getGroupName(ledger.groupId)}
-      </td>
+  const renderLedgerRow = (ledger: Ledger) => {
+    const isGlobalAdminTemplate =
+      (ledger.companyId !== undefined && Number(ledger.companyId) === 0) ||
+      ledger.ownerType === "admin";
 
-      <td className="px-4 py-3">{ledger.gstNumber}</td>
-      <td className="px-4 py-3 text-right font-mono">
-        {ledger.openingBalance}
-      </td>
-      <td className="px-4 py-3 text-center">
-        <span
-          className={`px-2 py-1 rounded text-xs ${ledger.balanceType === "debit"
+    return (
+      <tr
+        key={ledger.id}
+        className={`hover:bg-opacity-10 hover:bg-blue-500 transition-colors ${
+          isGlobalAdminTemplate
             ? theme === "dark"
-              ? "bg-red-900 text-red-200"
-              : "bg-red-100 text-red-800"
+              ? "bg-blue-900/10 border-b border-blue-900/30"
+              : "bg-blue-50/40 border-b border-blue-100"
             : theme === "dark"
-              ? "bg-green-900 text-green-200"
-              : "bg-green-100 text-green-800"
-            }`}
-        >
-          {ledger.balanceType?.toUpperCase() || "N/A"}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-center">
-        {ledger.gstNumber ? (
-          <>
+              ? "border-b border-gray-700"
+              : "border-b border-gray-200"
+        }`}
+      >
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className={isGlobalAdminTemplate ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
+              {ledger.name}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          {getGroupName(ledger.groupId)}
+        </td>
+
+        <td className="px-4 py-3">{ledger.gstNumber}</td>
+        <td className="px-4 py-3 text-right font-mono">
+          {ledger.openingBalance}
+        </td>
+        <td className="px-4 py-3 text-center">
+          <span
+            className={`px-2 py-1 rounded text-xs ${ledger.balanceType === "debit"
+              ? theme === "dark"
+                ? "bg-red-900 text-red-200"
+                : "bg-red-100 text-red-800"
+              : theme === "dark"
+                ? "bg-green-900 text-green-200"
+                : "bg-green-100 text-green-800"
+              }`}
+          >
+            {ledger.balanceType?.toUpperCase() || "N/A"}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-center">
+          {ledger.gstNumber ? (
+            <>
+              <span
+                className={`${theme === "dark"
+                  ? "bg-blue-900 text-blue-200"
+                  : "bg-blue-100 text-blue-800"
+                  } px-2 py-1 rounded text-xs font-medium`}
+              >
+                B2B
+              </span>
+              <div className="text-xs text-gray-500 font-mono">
+                {formatGSTNumber(ledger.gstNumber)}
+              </div>
+            </>
+          ) : (
             <span
               className={`${theme === "dark"
-                ? "bg-blue-900 text-blue-200"
-                : "bg-blue-100 text-blue-800"
+                ? "bg-purple-900 text-purple-200"
+                : "bg-purple-100 text-purple-800"
                 } px-2 py-1 rounded text-xs font-medium`}
             >
-              B2B
+              B2C
             </span>
-            <div className="text-xs text-gray-500 font-mono">
-              {formatGSTNumber(ledger.gstNumber)}
-            </div>
-          </>
-        ) : (
-          <span
-            className={`${theme === "dark"
-              ? "bg-purple-900 text-purple-200"
-              : "bg-purple-100 text-purple-800"
-              } px-2 py-1 rounded text-xs font-medium`}
-          >
-            B2C
-          </span>
-        )}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex justify-center items-center space-x-2">
-          {ledger.ownerId === 0 ? (
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex justify-center items-center space-x-2">
+            {isGlobalAdminTemplate ? (
             <>
               <span className={`px-2 py-1 text-xs font-bold rounded uppercase tracking-wider ${
                 theme === 'dark' 
@@ -521,8 +526,8 @@ const LedgerList: React.FC = () => {
           )}
         </div>
       </td>
-    </tr>
-  );
+    );
+  };
 
   if (isImported === null) {
     return (
