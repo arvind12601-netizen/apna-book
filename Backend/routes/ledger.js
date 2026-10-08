@@ -572,11 +572,34 @@ router.post("/import-from-admin", async (req, res) => {
   try {
     await connection.beginTransaction();
 
+    // Dynamically check columns present in ledgers table to prevent "Unknown column" errors
+    const [tableCols] = await connection.execute("SHOW COLUMNS FROM ledgers");
+    const existingTableCols = new Set(tableCols.map((c) => c.Field));
+
+    const possibleCols = [
+      "group_id",
+      "opening_balance",
+      "closing_balance",
+      "balance_type",
+      "address",
+      "email",
+      "phone",
+      "gst_number",
+      "pan_number",
+      "tan_number",
+      "depreciation_rate",
+      "state",
+      "district",
+      "pin_code",
+    ];
+
+    const validCols = possibleCols.filter((col) => existingTableCols.has(col));
+
+    const selectCols = ["name", ...validCols].join(", ");
+
     // 1. Fetch Admin template ledgers (company_id = 0 AND owner_type = 'admin')
     const [adminLedgers] = await connection.execute(
-      `SELECT name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code
-       FROM ledgers 
-       WHERE company_id = 0 AND owner_type = 'admin'`
+      `SELECT ${selectCols} FROM ledgers WHERE company_id = 0 AND owner_type = 'admin'`
     );
 
     if (adminLedgers.length === 0) {
@@ -589,7 +612,7 @@ router.post("/import-from-admin", async (req, res) => {
         success: true,
         message: "No Admin ledgers configured to import.",
         importedCount: 0,
-        skippedCount: 0
+        skippedCount: 0,
       });
     }
 
@@ -599,10 +622,14 @@ router.post("/import-from-admin", async (req, res) => {
       [companyId]
     );
 
-    const existingNamesSet = new Set(existingLedgers.map(l => l.name_lower));
+    const existingNamesSet = new Set(existingLedgers.map((l) => l.name_lower));
 
     let importedCount = 0;
     let skippedCount = 0;
+
+    const insertColsStr = ["name", ...validCols, "company_id", "owner_type", "owner_id"].join(", ");
+    const placeholdersStr = new Array(validCols.length + 4).fill("?").join(", ");
+    const insertQuery = `INSERT INTO ledgers (${insertColsStr}) VALUES (${placeholdersStr})`;
 
     // 3. Import missing Admin ledgers safely
     for (const ledger of adminLedgers) {
@@ -625,33 +652,23 @@ router.post("/import-from-admin", async (req, res) => {
         continue;
       }
 
-      await connection.execute(
-        `INSERT INTO ledgers (
-          name, group_id, opening_balance, closing_balance, balance_type,
-          address, email, phone, gst_number, pan_number, tan_number,
-          depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          ledger.name,
-          ledger.group_id,
-          ledger.opening_balance || 0,
-          ledger.closing_balance || 0,
-          ledger.balance_type || 'debit',
-          ledger.address || null,
-          ledger.email || null,
-          ledger.phone || null,
-          ledger.gst_number || null,
-          ledger.pan_number || null,
-          ledger.tan_number || '',
-          ledger.depreciation_rate || null,
-          ledger.state || '',
-          ledger.district || '',
-          ledger.pin_code || '',
-          companyId,
-          ownerType,
-          ownerId
-        ]
-      );
+      const paramValues = [
+        ledger.name,
+        ...validCols.map((col) => {
+          if (col === "opening_balance" || col === "closing_balance") {
+            return ledger[col] ?? 0;
+          }
+          if (col === "balance_type") {
+            return ledger[col] ?? "debit";
+          }
+          return ledger[col] ?? null;
+        }),
+        companyId,
+        ownerType,
+        ownerId,
+      ];
+
+      await connection.execute(insertQuery, paramValues);
 
       importedCount++;
       existingNamesSet.add(nameKey);
@@ -669,7 +686,7 @@ router.post("/import-from-admin", async (req, res) => {
       success: true,
       message: "Admin ledgers imported successfully",
       importedCount,
-      skippedCount
+      skippedCount,
     });
   } catch (err) {
     await connection.rollback();
@@ -677,7 +694,7 @@ router.post("/import-from-admin", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to import admin ledgers",
-      error: err.message
+      error: err.message,
     });
   } finally {
     connection.release();
