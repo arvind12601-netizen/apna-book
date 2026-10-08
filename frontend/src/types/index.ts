@@ -99,6 +99,7 @@ export type Ledger = {
   panNumber?: string;
   tanNumber?: string;
   depreciationRate?: number | string | null;
+  percentage?: number | string | null;
   type?: LedgerType;
   state?: string;
   district?: string;

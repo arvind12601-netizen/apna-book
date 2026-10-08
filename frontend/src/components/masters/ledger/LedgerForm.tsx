@@ -38,6 +38,7 @@ const LedgerForm: React.FC = () => {
     panNumber: "",
     tanNumber: "",
     depreciationRate: "",
+    percentage: "",
     state: "",
     district: "",
     pinCode: "",
@@ -54,6 +55,21 @@ const LedgerForm: React.FC = () => {
     }
     if (chekStock) {
       return chekStock.toLowerCase().replace(/[\s-]/g, "") === "fixedassets";
+    }
+    return false;
+  }, [formData.groupId, ledgerGroups, chekStock]);
+
+  const isCurrentAssets = useMemo(() => {
+    if (!formData.groupId) return false;
+    const findGroup =
+      ledgerGroups.find((g) => g.id.toString() === formData.groupId.toString()) ||
+      baseGroups.find((g) => g.id.toString() === formData.groupId.toString());
+    if (findGroup) {
+      const normName = findGroup.name.toLowerCase().replace(/[\s-]/g, "");
+      return findGroup.id.toString() === "-5" || normName === "currentassets";
+    }
+    if (chekStock) {
+      return chekStock.toLowerCase().replace(/[\s-]/g, "") === "currentassets";
     }
     return false;
   }, [formData.groupId, ledgerGroups, chekStock]);
@@ -144,6 +160,7 @@ const LedgerForm: React.FC = () => {
             panNumber: data.panNumber || data.pan_number || "",
             tanNumber: data.tanNumber || data.tan_number || "",
             depreciationRate: data.depreciationRate ?? data.depreciation_rate ?? "",
+            percentage: data.percentage ?? "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -193,6 +210,7 @@ const LedgerForm: React.FC = () => {
             panNumber: data.panNumber || data.pan_number || "",
             tanNumber: data.tanNumber || data.tan_number || "",
             depreciationRate: data.depreciationRate ?? data.depreciation_rate ?? "",
+            percentage: data.percentage ?? "",
             state: data.state || "",
             district: data.district || "",
             pinCode: data.pinCode || data.pin_code || "",
@@ -246,6 +264,7 @@ const LedgerForm: React.FC = () => {
       }
       if (errors.groupId) setErrors((prev) => ({ ...prev, groupId: "" }));
       if (errors.depreciationRate) setErrors((prev) => ({ ...prev, depreciationRate: "" }));
+      if (errors.percentage) setErrors((prev) => ({ ...prev, percentage: "" }));
       return;
     }
 
@@ -256,6 +275,17 @@ const LedgerForm: React.FC = () => {
       }));
       if (errors.depreciationRate) {
         setErrors((prev) => ({ ...prev, depreciationRate: "" }));
+      }
+      return;
+    }
+
+    if (name === "percentage") {
+      setFormData((prev) => ({
+        ...prev,
+        percentage: value,
+      }));
+      if (errors.percentage) {
+        setErrors((prev) => ({ ...prev, percentage: "" }));
       }
       return;
     }
@@ -310,6 +340,13 @@ const LedgerForm: React.FC = () => {
       }
     }
 
+    if (isCurrentAssets && formData.percentage !== "" && formData.percentage !== null && formData.percentage !== undefined) {
+      const pct = Number(formData.percentage);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        newErrors.percentage = "Percentage must be a valid number between 0 and 100";
+      }
+    }
+
     if (errors.name) newErrors.name = errors.name;
     if (errors.gstNumber) newErrors.gstNumber = errors.gstNumber;
     
@@ -323,6 +360,7 @@ const LedgerForm: React.FC = () => {
       const payload = {
         ...formData,
         depreciationRate: isFixedAssets && formData.depreciationRate !== "" && formData.depreciationRate !== null ? Number(formData.depreciationRate) : null,
+        percentage: isCurrentAssets && formData.percentage !== "" && formData.percentage !== null ? Number(formData.percentage) : null,
         companyId,
         ownerType,
         ownerId,
@@ -358,6 +396,7 @@ const LedgerForm: React.FC = () => {
       const payload = {
         ...formData,
         depreciationRate: isFixedAssets && formData.depreciationRate !== "" && formData.depreciationRate !== null ? Number(formData.depreciationRate) : null,
+        percentage: isCurrentAssets && formData.percentage !== "" && formData.percentage !== null ? Number(formData.percentage) : null,
         companyId,
         ownerType,
         ownerId,
@@ -601,6 +640,39 @@ const LedgerForm: React.FC = () => {
                 {errors.depreciationRate && (
                   <p className="text-red-500 text-xs mt-1">
                     {errors.depreciationRate}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {isCurrentAssets && (
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1"
+                  htmlFor="percentage"
+                >
+                  Percentage (%)
+                </label>
+                <input
+                  type="number"
+                  id="percentage"
+                  name="percentage"
+                  value={formData.percentage ?? ""}
+                  onChange={handleChange}
+                  step="any"
+                  min="0"
+                  max="100"
+                  placeholder="e.g. 10, 25.5 or 100"
+                  className={`w-full p-2 rounded border ${errors.percentage
+                    ? "border-red-500 focus:border-red-500"
+                    : theme === "dark"
+                      ? "bg-gray-700 border-gray-600 focus:border-blue-500"
+                      : "bg-white border-gray-300 focus:border-blue-500"
+                    } outline-none transition-colors`}
+                />
+                {errors.percentage && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.percentage}
                   </p>
                 )}
               </div>

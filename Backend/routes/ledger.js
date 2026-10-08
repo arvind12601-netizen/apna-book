@@ -95,6 +95,7 @@ router.get("/", async (req, res) => {
         l.pan_number AS panNumber,
         l.tan_number AS tanNumber,
         l.depreciation_rate AS depreciationRate,
+        l.percentage,
         l.state,
         l.district,
         l.pin_code AS pinCode,
@@ -248,10 +249,26 @@ router.post("/", async (req, res) => {
       ? parseFloat(rawDepRate)
       : null;
 
+    let isCurrentAssetsGroup = false;
+    if (String(groupId) === "-5") {
+      isCurrentAssetsGroup = true;
+    } else if (groupId) {
+      const [grpRows] = await db.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+      if (grpRows.length > 0) {
+        const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+        if (grpName === "currentassets") isCurrentAssetsGroup = true;
+      }
+    }
+
+    const rawPercentage = req.body.percentage;
+    const finalPercentage = (isCurrentAssetsGroup && rawPercentage !== undefined && rawPercentage !== null && rawPercentage !== "")
+      ? parseFloat(rawPercentage)
+      : null;
+
     const sql = `
     INSERT INTO ledgers 
-    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (name, group_id, opening_balance, closing_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, percentage, state, district, pin_code, company_id, owner_type, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
     const [result] = await db.execute(sql, [
@@ -267,6 +284,7 @@ router.post("/", async (req, res) => {
       panNumber || "",
       tanNumber || req.body.tan_number || "",
       finalDepreciationRate,
+      finalPercentage,
       state || "",
       district || "",
       pinCode || "",
@@ -288,6 +306,7 @@ router.post("/", async (req, res) => {
         panNumber,
         tanNumber: tanNumber || req.body.tan_number || "",
         depreciationRate: finalDepreciationRate,
+        percentage: finalPercentage,
         balanceType: balanceType || "debit"
       }
     });
@@ -407,8 +426,8 @@ router.post("/bulk", async (req, res) => {
 
     const sql = `
       INSERT INTO ledgers 
-      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, state, district, pin_code, company_id, owner_type, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (name, group_id, opening_balance, balance_type, address, email, phone, gst_number, pan_number, tan_number, depreciation_rate, percentage, state, district, pin_code, company_id, owner_type, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const results = [];
@@ -426,6 +445,7 @@ router.post("/bulk", async (req, res) => {
         panNumber,
         tanNumber,
         depreciationRate,
+        percentage,
         state,
         district,
         pinCode,
@@ -454,6 +474,22 @@ router.post("/bulk", async (req, res) => {
         ? parseFloat(itemDepRate)
         : null;
 
+      let isCurrentAssetsGroup = false;
+      if (String(groupId) === "-5") {
+        isCurrentAssetsGroup = true;
+      } else if (groupId) {
+        const [grpRows] = await connection.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+        if (grpRows.length > 0) {
+          const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+          if (grpName === "currentassets") isCurrentAssetsGroup = true;
+        }
+      }
+
+      const itemPct = percentage ?? ledger.percentage;
+      const finalPercentage = (isCurrentAssetsGroup && itemPct !== undefined && itemPct !== null && itemPct !== "")
+        ? parseFloat(itemPct)
+        : null;
+
       await connection.execute(sql, [
         name,
         groupId,
@@ -466,6 +502,7 @@ router.post("/bulk", async (req, res) => {
         panNumber || "",
         tanNumber || ledger.tan_number || "",
         finalDepreciationRate,
+        finalPercentage,
         state || "",
         district || "",
         pinCode || "",
@@ -701,6 +738,7 @@ router.get("/:id", async (req, res) => {
       panNumber: ledger.pan_number,
       tanNumber: ledger.tan_number || "",
       depreciationRate: ledger.depreciation_rate !== null && ledger.depreciation_rate !== undefined ? parseFloat(ledger.depreciation_rate) : null,
+      percentage: ledger.percentage !== null && ledger.percentage !== undefined ? parseFloat(ledger.percentage) : null,
       state: ledger.state || "",
       district: ledger.district || "",
       pinCode: ledger.pin_code || "",
@@ -824,6 +862,22 @@ router.put("/:id", async (req, res) => {
       ? parseFloat(rawDepRate)
       : null;
 
+    let isCurrentAssetsGroup = false;
+    if (String(groupId) === "-5") {
+      isCurrentAssetsGroup = true;
+    } else if (groupId) {
+      const [grpRows] = await db.execute(`SELECT name FROM ledger_groups WHERE id = ?`, [groupId]);
+      if (grpRows.length > 0) {
+        const grpName = grpRows[0].name.toLowerCase().replace(/[\s-]/g, "");
+        if (grpName === "currentassets") isCurrentAssetsGroup = true;
+      }
+    }
+
+    const rawPercentage = req.body.percentage;
+    const finalPercentage = (isCurrentAssetsGroup && rawPercentage !== undefined && rawPercentage !== null && rawPercentage !== "")
+      ? parseFloat(rawPercentage)
+      : null;
+
     const sql = `
       UPDATE ledgers
       SET name = ?, 
@@ -837,6 +891,7 @@ router.put("/:id", async (req, res) => {
           pan_number = ?,
           tan_number = ?,
           depreciation_rate = ?,
+          percentage = ?,
           state = ?,
           district = ?,
           pin_code = ?,
@@ -861,6 +916,7 @@ router.put("/:id", async (req, res) => {
       panNumber || "",
       tanNumber || req.body.tan_number || "",
       finalDepreciationRate,
+      finalPercentage,
       state || "",
       district || "",
       pinCode || "",
