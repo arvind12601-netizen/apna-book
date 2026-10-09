@@ -5,28 +5,16 @@ import { Edit, Trash2, Plus, Search, ArrowLeft } from "lucide-react";
 import Swal from "sweetalert2";
 import type { SalesType } from "../../../types";
 
-// 🔒 System defined sales types (negative id)
-
-const baseSalesTypes = [
-  {
-    id: -1,
-    sales_type: "Sales",
-    type: "Sales",
-    prefix: "",
-    suffix: "",
-    current_no: null,
-    isSystem: true,
-  },
-];
-
 const SalesTypeList: React.FC = () => {
   const { theme } = useAppContext();
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [salesTypes, setSalesTypes] = useState<SalesType[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchSalesTypes = async () => {
+    setLoading(true);
     try {
       const companyId = localStorage.getItem("company_id");
       const ownerType = localStorage.getItem("supplier");
@@ -48,13 +36,15 @@ const SalesTypeList: React.FC = () => {
     } catch (error) {
       console.error("Failed to fetch sales types:", error);
       setSalesTypes([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id: string | number) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
-      text: "This will permanently delete the sales type.",
+      text: "This will permanently delete the custom sales type.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, delete it!",
@@ -106,12 +96,13 @@ const SalesTypeList: React.FC = () => {
   return (
     <div className="pt-[56px] px-4">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center mb-6">
+        <div className="flex items-center">
           <button
             title="Back to Masters"
             onClick={() => navigate("/app/masters")}
-            className={`mr-4 p-2 rounded-full ${theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200"
-              }`}
+            className={`mr-4 p-2 rounded-full ${
+              theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-200"
+            }`}
           >
             <ArrowLeft size={20} />
           </button>
@@ -121,10 +112,11 @@ const SalesTypeList: React.FC = () => {
         <button
           title="Create Sales Type"
           onClick={() => navigate("/app/masters/sales-types/create")}
-          className={`flex items-center px-4 py-2 rounded ${theme === "dark"
-              ? "bg-blue-600 hover:bg-blue-700"
+          className={`flex items-center px-4 py-2 rounded ${
+            theme === "dark"
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
               : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+          }`}
         >
           <Plus size={18} className="mr-1" />
           Create
@@ -132,13 +124,15 @@ const SalesTypeList: React.FC = () => {
       </div>
 
       <div
-        className={`p-6 rounded-lg ${theme === "dark" ? "bg-gray-800" : "bg-white shadow"
-          }`}
+        className={`p-6 rounded-lg ${
+          theme === "dark" ? "bg-gray-800" : "bg-white shadow"
+        }`}
       >
         <div className="flex items-center mb-4">
           <div
-            className={`flex items-center w-full max-w-md px-3 py-2 rounded-md ${theme === "dark" ? "bg-gray-700" : "bg-gray-100"
-              }`}
+            className={`flex items-center w-full max-w-md px-3 py-2 rounded-md ${
+              theme === "dark" ? "bg-gray-700" : "bg-gray-100"
+            }`}
           >
             <Search size={18} className="mr-2 opacity-70" />
             <input
@@ -146,10 +140,11 @@ const SalesTypeList: React.FC = () => {
               placeholder="Search sales types..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full bg-transparent border-none outline-none ${theme === "dark"
+              className={`w-full bg-transparent border-none outline-none ${
+                theme === "dark"
                   ? "placeholder-gray-500"
                   : "placeholder-gray-400"
-                }`}
+              }`}
             />
           </div>
         </div>
@@ -158,10 +153,11 @@ const SalesTypeList: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr
-                className={`${theme === "dark"
+                className={`${
+                  theme === "dark"
                     ? "border-b border-gray-700"
                     : "border-b border-gray-200"
-                  }`}
+                }`}
               >
                 <th className="px-4 py-3 text-left">Sales Type</th>
                 <th className="px-4 py-3 text-left">Type</th>
@@ -171,69 +167,79 @@ const SalesTypeList: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {/* 🔒 STATIC SYSTEM ROW */}
-              <tr
-                className={`${theme === "dark"
-                    ? "border-b border-gray-700"
-                    : "border-b border-gray-200"
-                  } `}
-              >
-                <td className="px-4 py-3 font-medium">Sales</td>
-                <td className="px-4 py-3">Sales</td>
-                <td className="px-4 py-3 font-mono">—</td>
-                <td className="px-4 py-3 font-mono">—</td>
-                <td className="px-4 py-3 text-center opacity-50">
-                  {/* ❌ No Actions for system row */}
-                </td>
-              </tr>
+              {filtered.map((s) => {
+                const canEdit = s.canEdit !== false;
+                const canDelete = Boolean(s.canDelete);
 
-              {/* 🔓 DB DATA ROWS */}
-              {filtered.map((s) => (
-                <tr
-                  key={String(s.id)}
-                  className={`${theme === "dark"
-                      ? "border-b border-gray-700"
-                      : "border-b border-gray-200"
+                return (
+                  <tr
+                    key={String(s.id)}
+                    className={`${
+                      theme === "dark"
+                        ? "border-b border-gray-700"
+                        : "border-b border-gray-200"
                     } hover:bg-opacity-10 hover:bg-blue-500`}
-                >
-                  <td className="px-4 py-3">{s.sales_type}</td>
-                  <td className="px-4 py-3">{s.type}</td>
-                  <td className="px-4 py-3 font-mono">{s.prefix || "—"}</td>
-                  <td className="px-4 py-3 font-mono">{s.suffix || "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-center space-x-2">
-                      <button
-                        title="Edit"
-                        onClick={() =>
-                          navigate(`/app/masters/sales-types/edit/${s.id}`)
-                        }
-                        className={`p-1 rounded ${theme === "dark"
-                            ? "hover:bg-gray-700"
-                            : "hover:bg-gray-100"
-                          }`}
-                      >
-                        <Edit size={16} />
-                      </button>
+                  >
+                    <td className="px-4 py-3 font-medium">
+                      {s.sales_type}
+                      {s.isSystem && (
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-normal">
+                          System
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">{s.type || "Sales"}</td>
+                    <td className="px-4 py-3 font-mono">{s.prefix || "—"}</td>
+                    <td className="px-4 py-3 font-mono">{s.suffix || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex justify-center space-x-2">
+                        {canEdit ? (
+                          <button
+                            title="Edit"
+                            onClick={() =>
+                              navigate(`/app/masters/sales-types/edit/${s.id}`)
+                            }
+                            className={`p-1 rounded ${
+                              theme === "dark"
+                                ? "hover:bg-gray-700"
+                                : "hover:bg-gray-100"
+                            }`}
+                          >
+                            <Edit size={16} />
+                          </button>
+                        ) : (
+                          <span className="p-1 opacity-20 text-xs">—</span>
+                        )}
 
-                      <button
-                        title="Delete"
-                        onClick={() => handleDelete(s.id)}
-                        className={`p-1 rounded ${theme === "dark"
-                            ? "hover:bg-gray-700"
-                            : "hover:bg-gray-100"
-                          }`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {canDelete && (
+                          <button
+                            title="Delete"
+                            onClick={() => handleDelete(s.id)}
+                            className={`p-1 rounded ${
+                              theme === "dark"
+                                ? "hover:bg-gray-700 text-red-400"
+                                : "hover:bg-gray-100 text-red-600"
+                            }`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {loading && (
+          <div className="text-center py-8">
+            <p className="opacity-70">Loading sales types...</p>
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && (
           <div className="text-center py-8">
             <p className="opacity-70">No sales types found.</p>
           </div>

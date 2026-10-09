@@ -468,7 +468,7 @@ const SalesVoucher: React.FC = () => {
           setSalesTypes(json?.data || []);
           // Auto-select default Sales type (id=1) if not in edit mode
           if (!isEditMode) {
-            setSelectedSalesTypeId((prev) => prev || "custom");
+            setSelectedSalesTypeId((prev) => prev || "SALES");
           }
         } else {
           setSalesTypes([]);
@@ -587,7 +587,7 @@ const SalesVoucher: React.FC = () => {
   const selectedSalesType = useMemo(() => {
     if (!selectedSalesTypeId) return null;
     return (
-      salesTypes.find((st) => String(st.id) === String(selectedSalesTypeId)) ||
+      salesTypes.find((st) => String(st.id) === String(selectedSalesTypeId) || (st.code && String(st.code) === String(selectedSalesTypeId))) ||
       null
     );
   }, [salesTypes, selectedSalesTypeId]);
@@ -3183,7 +3183,7 @@ const SalesVoucher: React.FC = () => {
                 // ✅ AUTO-UPDATE VOUCHER NUMBER (Even in Edit Mode if user explicitly changes type)
                 if (v !== "custom" && v !== "") {
                   const newType = salesTypes.find(
-                    (st) => String(st.id) === String(v)
+                    (st) => String(st.id) === String(v) || (st.code && String(st.code) === String(v))
                   );
                   if (newType) {
                     const prefix = (newType.prefix || "").trim();

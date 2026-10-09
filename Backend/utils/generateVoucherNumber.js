@@ -21,6 +21,81 @@ const CONFIG_MAP = {
 };
 
 /**
+ * 🔹 Helper to resolve Sales Type Config (System types or Custom DB types)
+ */
+async function resolveSalesTypeConfig(
+  { salesTypeId, companyId, ownerType, ownerId },
+  executor = db
+) {
+  if (!salesTypeId || salesTypeId === "custom") return null;
+
+  const upperId = String(salesTypeId).trim().toUpperCase();
+
+  let systemCode = null;
+  if (upperId === "SALES" || upperId === "-1") systemCode = "SALES";
+  else if (upperId === "B2C" || upperId === "-2") systemCode = "B2C";
+  else if (upperId === "B2B" || upperId === "-3") systemCode = "B2B";
+
+  if (systemCode) {
+    let prefix = systemCode === "B2B" ? "b2b/" : "";
+    let suffix = systemCode === "B2B" ? "/26-27" : "";
+    const idsToMatch = [salesTypeId, systemCode, systemCode.toLowerCase()];
+
+    try {
+      const [settings] = await executor.execute(
+        "SELECT prefix, suffix FROM sales_type_settings WHERE company_id = ? AND owner_type = ? AND owner_id = ? AND system_code = ?",
+        [companyId, ownerType, ownerId, systemCode]
+      );
+      if (settings.length > 0) {
+        prefix = settings[0].prefix || "";
+        suffix = settings[0].suffix || "";
+      } else {
+        const [legacy] = await executor.execute(
+          "SELECT id, prefix, suffix FROM sales_types WHERE company_id = ? AND owner_type = ? AND owner_id = ? AND LOWER(sales_type) = LOWER(?)",
+          [companyId, ownerType, ownerId, systemCode]
+        );
+        if (legacy.length > 0) {
+          prefix = legacy[0].prefix || prefix;
+          suffix = legacy[0].suffix || suffix;
+          idsToMatch.push(legacy[0].id, String(legacy[0].id));
+        }
+      }
+    } catch (err) {
+      console.error("Error resolving system sales type config:", err);
+    }
+
+    return { prefix, suffix, systemCode, idsToMatch };
+  }
+
+  // Check DB custom type
+  try {
+    const [stRows] = await executor.execute(
+      "SELECT id, sales_type, prefix, suffix FROM sales_types WHERE id = ?",
+      [salesTypeId]
+    );
+    if (stRows.length > 0) {
+      const nameUpper = (stRows[0].sales_type || "").trim().toUpperCase();
+      if (["SALES", "B2C", "B2B"].includes(nameUpper)) {
+        return resolveSalesTypeConfig(
+          { salesTypeId: nameUpper, companyId, ownerType, ownerId },
+          executor
+        );
+      }
+      return {
+        prefix: stRows[0].prefix || "",
+        suffix: stRows[0].suffix || "",
+        systemCode: null,
+        idsToMatch: [salesTypeId, String(salesTypeId)],
+      };
+    }
+  } catch (err) {
+    console.error("Error resolving custom sales type config:", err);
+  }
+
+  return null;
+}
+
+/**
  * 🔹 Generate voucher number (Tally-style)
  */
 async function generateVoucherNumber({
@@ -29,7 +104,7 @@ async function generateVoucherNumber({
   ownerId,
   voucherType,
   date,
-  salesTypeId, // Added salesTypeId
+  salesTypeId,
 }) {
   const config = CONFIG_MAP[voucherType];
   if (!config) {
@@ -40,21 +115,20 @@ async function generateVoucherNumber({
   let prefix = config.prefix;
   let suffix = "";
   let useTypeFilter = false;
+  let salesTypeConfig = null;
 
-  // 🔹 Fetch custom prefix/suffix if salesTypeId is provided
+  // 🔹 Fetch custom or system prefix/suffix if salesTypeId is provided
   if (voucherType === "sales" && salesTypeId && salesTypeId !== "custom") {
-    try {
-      const [stRows] = await db.execute(
-        "SELECT prefix, suffix FROM sales_types WHERE id = ?",
-        [salesTypeId]
-      );
-      if (stRows.length > 0) {
-        prefix = stRows[0].prefix || "";
-        suffix = stRows[0].suffix || "";
-        useTypeFilter = true;
-      }
-    } catch (err) {
-      console.error("Error fetching sales type for numbering:", err);
+    salesTypeConfig = await resolveSalesTypeConfig({
+      salesTypeId,
+      companyId,
+      ownerType,
+      ownerId,
+    });
+    if (salesTypeConfig) {
+      prefix = salesTypeConfig.prefix;
+      suffix = salesTypeConfig.suffix;
+      useTypeFilter = true;
     }
   }
 
@@ -69,9 +143,10 @@ async function generateVoucherNumber({
 
   const params = [companyId, ownerType, ownerId];
 
-  if (useTypeFilter) {
-    sql += ` AND sales_type_id = ?`;
-    params.push(salesTypeId);
+  if (useTypeFilter && salesTypeConfig && salesTypeConfig.idsToMatch.length > 0) {
+    const placeholders = salesTypeConfig.idsToMatch.map(() => "?").join(",");
+    sql += ` AND sales_type_id IN (${placeholders})`;
+    params.push(...salesTypeConfig.idsToMatch);
   } else {
     sql += ` AND ${column} LIKE ?`;
     params.push(searchPattern);
@@ -97,7 +172,6 @@ async function generateVoucherNumber({
     }
 
     if (useTypeFilter) {
-      // Follow frontend format: prefix + suffix + "/" + nextNo
       return `${prefix}${suffix}/${nextNo}`;
     }
 
@@ -123,30 +197,22 @@ async function renumberVouchers(
   let prefix = config.prefix;
   let suffix = "";
   let useTypeFilter = false;
+  let salesTypeConfig = null;
 
-  // 🔹 Fetch custom prefix/suffix if salesTypeId is provided
   if (voucherType === "sales" && salesTypeId && salesTypeId !== "custom") {
-    try {
-      const [stRows] = await executor.execute(
-        "SELECT prefix, suffix FROM sales_types WHERE id = ?",
-        [salesTypeId]
-      );
-      if (stRows.length > 0) {
-        prefix = stRows[0].prefix || "";
-        suffix = stRows[0].suffix || "";
-        useTypeFilter = true;
-      }
-    } catch (err) {
-      console.error("Error fetching sales type for renumbering:", err);
+    salesTypeConfig = await resolveSalesTypeConfig(
+      { salesTypeId, companyId, ownerType, ownerId },
+      executor
+    );
+    if (salesTypeConfig) {
+      prefix = salesTypeConfig.prefix;
+      suffix = salesTypeConfig.suffix;
+      useTypeFilter = true;
     }
   }
 
   const fy = getFinancialYear(date);
   const searchPattern = useTypeFilter ? null : `${prefix}/${fy}/%`;
-
-  console.log(
-    `[renumberVouchers] Starting for ${voucherType} (TypeID: ${salesTypeId}) in FY ${fy}`
-  );
 
   let sql = `
     SELECT id, date, ${column} as oldNumber 
@@ -155,9 +221,10 @@ async function renumberVouchers(
   `;
   const params = [companyId, ownerType, ownerId];
 
-  if (useTypeFilter) {
-    sql += ` AND sales_type_id = ?`;
-    params.push(salesTypeId);
+  if (useTypeFilter && salesTypeConfig && salesTypeConfig.idsToMatch.length > 0) {
+    const placeholders = salesTypeConfig.idsToMatch.map(() => "?").join(",");
+    sql += ` AND sales_type_id IN (${placeholders})`;
+    params.push(...salesTypeConfig.idsToMatch);
   } else {
     sql += ` AND ${column} LIKE ?`;
     params.push(searchPattern);
@@ -172,18 +239,6 @@ async function renumberVouchers(
 
   try {
     const [vouchers] = await executor.execute(sql, params);
-
-    // 🔹 Sync current_no in sales_types (Always do this if salesTypeId is provided to keep sequences in sync)
-    if (useTypeFilter) {
-      const nextNo = vouchers.length + 1;
-      console.log(
-        `[renumberVouchers] Syncing sales_types TypeID ${salesTypeId} current_no to ${nextNo}`
-      );
-      await executor.execute(
-        "UPDATE sales_types SET current_no = ? WHERE id = ?",
-        [nextNo, salesTypeId]
-      );
-    }
 
     if (vouchers.length === 0) return;
 
@@ -208,11 +263,9 @@ async function renumberVouchers(
     }
 
     if (updatesNeeded.length === 0) {
-      console.log(`[renumberVouchers] No numbering changes needed.`);
       return;
     }
 
-    // 1. Temporarily move all affected to a non-conflicting sequence to avoid UNIQUE constraint errors
     for (const v of updatesNeeded) {
       await executor.execute(
         `UPDATE ${table} SET ${column} = CONCAT(${column}, '_TEMP') WHERE id = ?`,
@@ -220,20 +273,13 @@ async function renumberVouchers(
       );
     }
 
-    // 2. Now re-assign correctly in order
     for (const v of updatesNeeded) {
       const { id, oldNumber, newNumber } = v;
-
-      console.log(
-        `[renumberVouchers] Updating voucher ${id}: ${oldNumber} -> ${newNumber}`
-      );
-
       await executor.execute(`UPDATE ${table} SET ${column} = ? WHERE id = ?`, [
         newNumber,
         id,
       ]);
 
-      // Update related history
       if (table === "purchase_vouchers") {
         await executor.execute(
           `UPDATE purchase_history SET voucherNumber = ? WHERE voucherNumber = ? AND companyId = ?`,
@@ -246,15 +292,10 @@ async function renumberVouchers(
         );
       }
     }
-
-    console.log(
-      `[renumberVouchers] Successfully renumbered ${updatesNeeded.length} vouchers.`
-    );
   } catch (err) {
     console.error(`[renumberVouchers] ERROR:`, err);
     throw err;
   }
 }
 
-
-module.exports = { generateVoucherNumber, renumberVouchers };
+module.exports = { generateVoucherNumber, renumberVouchers, resolveSalesTypeConfig };

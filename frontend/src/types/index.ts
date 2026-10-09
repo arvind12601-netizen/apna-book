@@ -286,6 +286,7 @@ export type Godown = {
 
 export type SalesType = {
   id: string | number;
+  code?: string;
   sales_type: string;
   type: string;
   prefix: string;
@@ -294,6 +295,8 @@ export type SalesType = {
   created_at?: string;
   updated_at?: string;
   isSystem?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 export type LedgerEntry = {

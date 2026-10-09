@@ -2314,11 +2314,9 @@ router.post("/sales_summary_import", async (req, res) => {
             }
         }
 
-        let salesTypeId = null;
+        let salesTypeId = hasGst ? "B2B" : "B2C";
         if (matchedSalesType) {
             salesTypeId = matchedSalesType.id;
-        } else if (salesTypes.length > 0) {
-            salesTypeId = salesTypes[0].id;
         }
 
         // GENERATE VOUCHER NUMBER

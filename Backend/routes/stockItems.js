@@ -1032,7 +1032,7 @@ router.get("/barcode/:barcode", async (req, res) => {
   }
 });
 
-// ledger get and filter sgst, cgst, igst
+// ledger get and filter ledgers under Duties & Taxes (group_id = -103) and its subgroups
 router.get("/ledger", async (req, res) => {
   try {
     const { company_id, owner_type, owner_id } = req.query;
@@ -1044,22 +1044,28 @@ router.get("/ledger", async (req, res) => {
       });
     }
 
-    // ✅ Case-insensitive search with owner_id DESC so owner-specific ledgers take priority
+    // Fetch only ledgers belonging to the GST group (and its subgroups) under Duties & Taxes (-103)
     const [rows] = await db.query(
       `
-      SELECT id, name, owner_id
+      SELECT id, name, group_id, owner_id
       FROM ledgers
       WHERE company_id = ?
         AND (
           (owner_type = ? AND owner_id = ?) 
           OR owner_id = 0
         )
-        AND group_id = -103
         AND (
-          LOWER(name) LIKE '%gst%'
-          OR LOWER(name) LIKE '%cgst%'
-          OR LOWER(name) LIKE '%sgst%'
-          OR LOWER(name) LIKE '%igst%'
+          group_id IN (-115, -116, -117, -118)
+          OR group_id IN (
+            SELECT id FROM ledger_groups 
+            WHERE id = -115 
+               OR parent = -115 
+               OR parent IN (SELECT id FROM ledger_groups WHERE parent = -115 OR id = -115)
+               OR (
+                 (parent = -103 OR parent IN (SELECT id FROM ledger_groups WHERE id = -103 OR LOWER(name) LIKE '%duties%'))
+                 AND LOWER(name) LIKE '%gst%'
+               )
+          )
         )
       ORDER BY owner_id DESC, id ASC
       `,
@@ -1075,7 +1081,7 @@ router.get("/ledger", async (req, res) => {
       const normName = row.name.trim().toLowerCase();
       if (nameMap.has(normName)) continue;
 
-      uniqueMap.set(row.id, { id: row.id, name: row.name });
+      uniqueMap.set(row.id, { id: row.id, name: row.name, group_id: row.group_id });
       nameMap.set(normName, true);
     }
 
@@ -1086,22 +1092,37 @@ router.get("/ledger", async (req, res) => {
       cgst: [],
       sgst: [],
       igst: [],
+      all: uniqueRows,
     };
 
     uniqueRows.forEach((ledger) => {
-      const lname = ledger.name.toLowerCase(); // ✅ sab lowercase
+      const lname = ledger.name.toLowerCase();
+      const gid = ledger.group_id;
 
-      if (lname.includes("igst")) {
+      const isIgst = lname.includes("igst") || gid === -116;
+      const isCgst = lname.includes("cgst") || gid === -117;
+      const isSgst = lname.includes("sgst") || gid === -118;
+
+      if (isIgst) {
         result.igst.push(ledger);
-      }
-      else if (lname.includes("cgst")) {
+      } else if (isCgst) {
         result.cgst.push(ledger);
-      }
-      else if (lname.includes("sgst")) {
+      } else if (isSgst) {
         result.sgst.push(ledger);
-      }
-      else if (lname.includes("gst")) {
-        result.gst.push(ledger);
+      } else {
+        if (lname.includes("integrated")) {
+          result.igst.push(ledger);
+        } else if (lname.includes("central")) {
+          result.cgst.push(ledger);
+        } else if (lname.includes("state") || lname.includes("utgst")) {
+          result.sgst.push(ledger);
+        } else {
+          result.gst.push(ledger);
+          // If not specifically designated as igst/cgst/sgst, make it available across all lists
+          result.igst.push(ledger);
+          result.cgst.push(ledger);
+          result.sgst.push(ledger);
+        }
       }
     });
 

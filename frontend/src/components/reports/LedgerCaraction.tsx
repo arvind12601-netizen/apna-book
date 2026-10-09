@@ -1194,9 +1194,9 @@ const LedgerCaraction: React.FC = () => {
                           {voucherGroup.map((txn, i) => (
                             <tr
                               key={txn.id}
-                              className={`transition-all duration-150 ${theme === "dark"
-                                ? "hover:bg-blue-600 hover:text-white"
-                                : "hover:bg-blue-600 hover:text-white font-bold"
+                              className={`border-b cursor-pointer transition-all duration-150 ${theme === "dark"
+                                ? "border-gray-700 text-gray-200 hover:bg-gray-700"
+                                : "border-gray-200 text-gray-900 hover:bg-blue-300"
                                 }`}
                             >
                               {/* Date */}
@@ -1239,13 +1239,13 @@ const LedgerCaraction: React.FC = () => {
 
                                 <td className="px-4 py-3">
                                   <select
-                                    className={`w-full p-1 text-sm border rounded ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"}`}
+                                    className={`w-full p-1 text-sm border rounded transition-colors ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                                     value={transferSelections[first.id] || ""}
                                     onChange={(e) => setTransferSelections(prev => ({ ...prev, [first.id]: e.target.value }))}
                                   >
-                                    <option value="" disabled>Select Ledger</option>
+                                    <option value="" disabled className={theme === "dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>Select Ledger</option>
                                     {ledgers.map(l => (
-                                      <option key={l.id} value={l.id}>{l.name}</option>
+                                      <option key={l.id} value={l.id} className={theme === "dark" ? "bg-gray-800 text-white" : "bg-white text-gray-900"}>{l.name}</option>
                                     ))}
                                   </select>
                                 </td>
@@ -1256,9 +1256,9 @@ const LedgerCaraction: React.FC = () => {
                                       e.stopPropagation();
                                       handleViewVoucher(first);
                                     }}
-                                    className={`p-1 rounded ${theme === "dark"
-                                      ? "hover:bg-gray-600"
-                                      : "hover:bg-gray-200"
+                                    className={`p-1 rounded transition-colors ${theme === "dark"
+                                      ? "hover:bg-gray-600 text-gray-300"
+                                      : "hover:bg-gray-200 text-gray-700"
                                       }`}
                                     title="View Details"
                                   >
@@ -1271,9 +1271,9 @@ const LedgerCaraction: React.FC = () => {
                                       const rawId = txn.id.includes('-') ? txn.id.split('-').pop() : txn.id;
                                       navigate(`/app/vouchers/${vType}/edit/${rawId}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
                                     }}
-                                    className={`p-1 rounded text-blue-600 ${theme === "dark"
-                                      ? "hover:bg-gray-600 text-blue-400"
-                                      : "hover:bg-gray-200"
+                                    className={`p-1 rounded transition-colors text-blue-600 dark:text-blue-400 ${theme === "dark"
+                                      ? "hover:bg-gray-600"
+                                      : "hover:bg-blue-100"
                                       }`}
                                     title="Edit Voucher"
                                   >
@@ -1288,9 +1288,9 @@ const LedgerCaraction: React.FC = () => {
                                         alert("Please select a bank ledger to transfer first.");
                                       }
                                     }}
-                                    className={`p-1 rounded text-green-600 ${theme === "dark"
-                                      ? "hover:bg-gray-600 text-green-400"
-                                      : "hover:bg-gray-200"
+                                    className={`p-1 rounded transition-colors text-green-600 dark:text-green-400 ${theme === "dark"
+                                      ? "hover:bg-gray-600"
+                                      : "hover:bg-green-100"
                                       }`}
                                     title="Confirm Transfer"
                                   >
@@ -1399,9 +1399,9 @@ const LedgerCaraction: React.FC = () => {
                         <tr
                           key={m.key}
                           onClick={() => handleMonthClick(m.key)}
-                          className={`cursor-pointer transition-all duration-150 ${theme === "dark"
-                            ? "hover:bg-blue-600 hover:text-white"
-                            : "hover:bg-blue-600 hover:text-white font-bold"
+                          className={`cursor-pointer border-b transition-all duration-150 ${theme === "dark"
+                            ? "border-gray-700 text-gray-200 hover:bg-gray-700"
+                            : "border-gray-200 text-gray-900 hover:bg-blue-300 font-semibold"
                             }`}
                         >
                           {/* Month */}
@@ -1509,7 +1509,10 @@ const LedgerCaraction: React.FC = () => {
                       <tr
                         key={idx}
                         onClick={() => handleDayClick(day.date)}
-                        className={`cursor-pointer transition-all duration-150 ${theme === "dark" ? "hover:bg-blue-600 hover:text-white border-b border-gray-700" : "hover:bg-blue-600 hover:text-white font-bold border-b border-gray-100"}`}
+                        className={`cursor-pointer border-b transition-all duration-150 ${theme === "dark"
+                          ? "border-gray-700 text-gray-200 hover:bg-gray-700"
+                          : "border-gray-200 text-gray-900 hover:bg-blue-300 font-semibold"
+                          }`}
                       >
                         <td className="px-4 py-3 font-medium text-sm">{formatDate(day.date)}</td>
                         <td className="px-4 py-3 text-right text-sm font-mono">{day.debit > 0 ? formatCurrency(day.debit) : ""}</td>
