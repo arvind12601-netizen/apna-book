@@ -350,7 +350,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
       `SALES BEFORE ${finYearDates.cutoffDateStr}`,
       `SALES AFTER ${finYearDates.cutoffDateStr}`,
       "RATE OF DEPRECIATION (%)",
-      "As & PL Account",
+      "Ds & PL Account",
       "AMOUNT OF DEP.",
       `NET BLOCK AS ON ${finYearDates.endDateStr}`,
     ];
@@ -509,7 +509,7 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
                     RATE OF DEPRECIATION
                   </th>
                   <th rowSpan={2} className="border border-gray-400 dark:border-gray-600 p-2 min-w-[110px]">
-                    As & PL Account
+                    Ds & PL Account
                   </th>
                   <th rowSpan={2} className="border border-gray-400 dark:border-gray-600 p-2 min-w-[110px]">
                     AMOUNT OF DEP.
@@ -589,25 +589,11 @@ const FixedAssetsSchedule: React.FC<FixedAssetsScheduleProps> = ({ embedded = fa
                         </td>
 
                         {/* RATE OF DEPRECIATION */}
-                        <td className="border border-gray-400 dark:border-gray-600 p-1 text-center font-mono">
-                          <div className="flex items-center justify-center">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={row.depreciationRate === 0 ? "" : row.depreciationRate}
-                              placeholder="0.00"
-                              onChange={(e) => handleRateChange(row.ledgerId, parseFloat(e.target.value) || 0)}
-                              className={`w-16 text-center p-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 print:hidden ${
-                                isDark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"
-                              }`}
-                            />
-                            <span className="ml-0.5 print:inline">%</span>
-                          </div>
+                        <td className="border border-gray-400 dark:border-gray-600 p-2 text-center font-mono font-semibold">
+                          {row.depreciationRate ? `${row.depreciationRate}%` : "0%"}
                         </td>
 
-                        {/* AS & PL ACCOUNT (CALC VALUE) */}
+                        {/* DS & PL ACCOUNT (CALC VALUE) */}
                         <td className="border border-gray-400 dark:border-gray-600 p-2 text-right font-mono">
                           {formatINR(calcVal)}
                         </td>
