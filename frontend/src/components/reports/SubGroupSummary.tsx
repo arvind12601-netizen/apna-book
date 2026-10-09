@@ -399,7 +399,7 @@ const SubGroupSummary: React.FC = () => {
                               trimmedName.startsWith("cash a/c") ||
                               trimmedName.startsWith("cash ");
                             const isCreditBalance = b.closingSigned < -0.001;
-                            const shouldHighlightRed = isCashLedger && isCreditBalance;
+                            const isRedClosingBalance = isCashLedger && isCreditBalance;
 
                             return (
                               <tr
@@ -408,13 +408,9 @@ const SubGroupSummary: React.FC = () => {
                                   navigate(`/app/reports/ledger/${ledger.id}`)
                                 }
                                 className={`border-b cursor-pointer transition-colors ${
-                                  shouldHighlightRed
-                                    ? theme === "dark"
-                                      ? "border-red-900/50 bg-red-900/30 hover:bg-red-900/50"
-                                      : "border-red-200 bg-red-100/80 hover:bg-red-200/80"
-                                    : theme === "dark"
-                                      ? "border-gray-700 hover:bg-gray-700"
-                                      : "border-gray-200 hover:bg-gray-50"
+                                  theme === "dark"
+                                    ? "border-gray-700 hover:bg-gray-700"
+                                    : "border-gray-200 hover:bg-gray-50"
                                 }`}
                               >
                                 <td className="py-3 px-4 text-blue-600 font-medium ">
@@ -429,7 +425,9 @@ const SubGroupSummary: React.FC = () => {
                                 <td className="py-3 px-4 text-right font-mono text-sm">
                                   {b.credit > 0 ? b.credit.toLocaleString() : ""}
                                 </td>
-                                <td className="py-3 px-4 text-right font-mono text-sm font-semibold">
+                                <td className={`py-3 px-4 text-right font-mono text-sm font-semibold ${
+                                  isRedClosingBalance ? "text-red-600 dark:text-red-400 font-bold" : ""
+                                }`}>
                                   {formatBalance(b.closingSigned)}
                                 </td>
                               </tr>
