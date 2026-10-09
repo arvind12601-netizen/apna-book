@@ -1032,7 +1032,7 @@ router.get("/barcode/:barcode", async (req, res) => {
   }
 });
 
-// ledger get and filter sgst, cgst, igst
+// ledger get and filter ledgers under Duties & Taxes (group_id = -103) and its subgroups
 router.get("/ledger", async (req, res) => {
   try {
     const { company_id, owner_type, owner_id } = req.query;
@@ -1044,7 +1044,7 @@ router.get("/ledger", async (req, res) => {
       });
     }
 
-    // ✅ Case-insensitive search with owner_id DESC so owner-specific ledgers take priority
+    // Fetch only ledgers belonging to the GST group (and its subgroups) under Duties & Taxes (-103)
     const [rows] = await db.query(
       `
       SELECT id, name, owner_id
@@ -1054,12 +1054,18 @@ router.get("/ledger", async (req, res) => {
           (owner_type = ? AND owner_id = ?) 
           OR owner_id = 0
         )
-        AND group_id = -103
         AND (
-          LOWER(name) LIKE '%gst%'
-          OR LOWER(name) LIKE '%cgst%'
-          OR LOWER(name) LIKE '%sgst%'
-          OR LOWER(name) LIKE '%igst%'
+          group_id IN (-115, -116, -117, -118)
+          OR group_id IN (
+            SELECT id FROM ledger_groups 
+            WHERE id = -115 
+               OR parent = -115 
+               OR parent IN (SELECT id FROM ledger_groups WHERE parent = -115 OR id = -115)
+               OR (
+                 (parent = -103 OR parent IN (SELECT id FROM ledger_groups WHERE id = -103 OR LOWER(name) LIKE '%duties%'))
+                 AND LOWER(name) LIKE '%gst%'
+               )
+          )
         )
       ORDER BY owner_id DESC, id ASC
       `,
@@ -1081,29 +1087,14 @@ router.get("/ledger", async (req, res) => {
 
     const uniqueRows = Array.from(uniqueMap.values());
 
+    // Provide all ledgers under Duties & Taxes / GST to all tax ledger option lists
     const result = {
-      gst: [],
-      cgst: [],
-      sgst: [],
-      igst: [],
+      gst: uniqueRows,
+      cgst: uniqueRows,
+      sgst: uniqueRows,
+      igst: uniqueRows,
+      all: uniqueRows,
     };
-
-    uniqueRows.forEach((ledger) => {
-      const lname = ledger.name.toLowerCase(); // ✅ sab lowercase
-
-      if (lname.includes("igst")) {
-        result.igst.push(ledger);
-      }
-      else if (lname.includes("cgst")) {
-        result.cgst.push(ledger);
-      }
-      else if (lname.includes("sgst")) {
-        result.sgst.push(ledger);
-      }
-      else if (lname.includes("gst")) {
-        result.gst.push(ledger);
-      }
-    });
 
     res.json({
       success: true,
