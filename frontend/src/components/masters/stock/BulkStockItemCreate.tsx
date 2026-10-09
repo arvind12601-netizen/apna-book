@@ -494,7 +494,7 @@ const BulkStockItemCreate: React.FC = () => {
                         className={`w-full px-2 py-1 text-[10px] uppercase font-bold border rounded focus:ring-1 focus:ring-blue-500 ${item.errors.gstLedgerId ? 'border-red-500 bg-red-50/10' : theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`}
                       >
                         <option value="">-- IGST --</option>
-                        {deduplicateLedgers([...gstLedgers.gst, ...gstLedgers.igst]).map(l => (
+                        {deduplicateLedgers(gstLedgers.igst.length > 0 ? gstLedgers.igst : gstLedgers.gst).map(l => (
                           <option key={l.id} value={l.id}>{l.name}</option>
                         ))}
                       </select>

@@ -1047,7 +1047,7 @@ router.get("/ledger", async (req, res) => {
     // Fetch only ledgers belonging to the GST group (and its subgroups) under Duties & Taxes (-103)
     const [rows] = await db.query(
       `
-      SELECT id, name, owner_id
+      SELECT id, name, group_id, owner_id
       FROM ledgers
       WHERE company_id = ?
         AND (
@@ -1081,20 +1081,50 @@ router.get("/ledger", async (req, res) => {
       const normName = row.name.trim().toLowerCase();
       if (nameMap.has(normName)) continue;
 
-      uniqueMap.set(row.id, { id: row.id, name: row.name });
+      uniqueMap.set(row.id, { id: row.id, name: row.name, group_id: row.group_id });
       nameMap.set(normName, true);
     }
 
     const uniqueRows = Array.from(uniqueMap.values());
 
-    // Provide all ledgers under Duties & Taxes / GST to all tax ledger option lists
     const result = {
-      gst: uniqueRows,
-      cgst: uniqueRows,
-      sgst: uniqueRows,
-      igst: uniqueRows,
+      gst: [],
+      cgst: [],
+      sgst: [],
+      igst: [],
       all: uniqueRows,
     };
+
+    uniqueRows.forEach((ledger) => {
+      const lname = ledger.name.toLowerCase();
+      const gid = ledger.group_id;
+
+      const isIgst = lname.includes("igst") || gid === -116;
+      const isCgst = lname.includes("cgst") || gid === -117;
+      const isSgst = lname.includes("sgst") || gid === -118;
+
+      if (isIgst) {
+        result.igst.push(ledger);
+      } else if (isCgst) {
+        result.cgst.push(ledger);
+      } else if (isSgst) {
+        result.sgst.push(ledger);
+      } else {
+        if (lname.includes("integrated")) {
+          result.igst.push(ledger);
+        } else if (lname.includes("central")) {
+          result.cgst.push(ledger);
+        } else if (lname.includes("state") || lname.includes("utgst")) {
+          result.sgst.push(ledger);
+        } else {
+          result.gst.push(ledger);
+          // If not specifically designated as igst/cgst/sgst, make it available across all lists
+          result.igst.push(ledger);
+          result.cgst.push(ledger);
+          result.sgst.push(ledger);
+        }
+      }
+    });
 
     res.json({
       success: true,

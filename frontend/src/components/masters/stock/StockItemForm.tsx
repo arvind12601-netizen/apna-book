@@ -251,10 +251,11 @@ const StockItemForm = () => {
     return options;
   };
 
-  const gstOptions = deduplicateOptions([
-    ...gstLedgers.gst,
-    ...gstLedgers.igst,
-  ]);
+  const igstOptions = deduplicateOptions(
+    gstLedgers.igst && gstLedgers.igst.length > 0
+      ? gstLedgers.igst
+      : gstLedgers.gst
+  );
 
   const cgstOptions = deduplicateOptions(gstLedgers.cgst);
 
@@ -1106,7 +1107,7 @@ const StockItemForm = () => {
               label="IGST"
               value={formData.gstLedgerId}
               onChange={handleChange}
-              options={gstOptions}
+              options={igstOptions}
             />
 
 
